@@ -62,11 +62,12 @@ class niwaImg(niwaImgInfo):
 	def __get_data(self):
 		return self.__data.copy()
 	def __set_data(self, new_data):
-		self.__data = new_data.copy()
+		#if all([s1 == s2 for s1, s2 in zip(self.shape, new_data.shape)]):
+		if list(self.shape) == list(new_data.shape):
+			self.__data = new_data.copy()
+		else:
+			self.__data = cv2.resize(new_data, (self.shape[1], self.shape[0]))
 		self._Zdata = np.array([self.__data.min(), self.__data.max()])
-		self._shape = np.array(self.data.shape)
-		self._lenppixel = self._XYlength[0] / self._shape[0]
-		self._ns2ppixel = (self._XYlength[0]*self._XYlength[1]) / (self._shape[0]*self._shape[1])
 	def __del_data(self):
 		del self.__data
 	data = property(__get_data, __set_data, __del_data)
@@ -86,7 +87,6 @@ class niwaImg(niwaImgInfo):
 		return niwaImgInfo(self)
 
 	def getOpenCVimageGray(self):
-		#gray_img = cv2.normalize(self.data, self.data, 0, 255, cv2.NORM_MINMAX)
 		if (self.zdata[1] - self.zdata[0]) <= 0:
 			print(self.zdata[1] - self.zdata[0])
 		gray_img = (self.data - self.zdata[0]) / (self.zdata[1] - self.zdata[0])
@@ -192,4 +192,34 @@ def writeTime(src, time, frame_num = ""):
 		font_size = 0.4
 		dst = cv2.putText(dst, txt, position, font, font_size, (0, 0, 0), 2, cv2.LINE_AA)
 		dst = cv2.putText(dst, txt, position, font, font_size, (255, 255, 255), 1, cv2.LINE_AA)
+	return dst
+
+class Kernels:
+	sharp = lambda k : np.matrix('0,{0},0;{0},{1},{0};0,{0},0'.format(-k,1+4*k))
+	gaussian = np.array([
+						[1,  2, 1],
+						[2,  4, 2],
+						[1,  2, 1]
+						], np.float32) / 16
+	laplacian_5x5 = np.array([
+							[-1, -3, -4, -3, -1],
+							[-3,  0,  6,  0, -3],
+							[-4,  6, 20,  6, -4],
+							[-3,  0,  6,  0, -3],
+							[-1, -3, -4, -3, -1]
+							], np.float32)
+	laplacian_3x3 = np.array([
+							[1,  1, 1],
+							[1, -8, 1],
+							[1,  1, 1]
+							], np.float32)
+	high_pass = np.array([
+						[-1, -1, -1],
+						[-1,  8, -1],
+						[-1, -1, -1]
+						], np.float32)
+
+def convolution_filter(src, kernel):
+	dst = src.copy()
+	dst.data = cv2.filter2D(dst.data, -1, kernel)
 	return dst
