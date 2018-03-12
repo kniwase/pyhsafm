@@ -195,31 +195,39 @@ def writeTime(src, time, frame_num = ""):
 	return dst
 
 class Kernels:
-	sharp = lambda k : np.matrix('0,{0},0;{0},{1},{0};0,{0},0'.format(-k,1+4*k))
-	gaussian = np.array([
-						[1,  2, 1],
-						[2,  4, 2],
-						[1,  2, 1]
-						], np.float32) / 16
-	laplacian_5x5 = np.array([
-							[-1, -3, -4, -3, -1],
-							[-3,  0,  6,  0, -3],
-							[-4,  6, 20,  6, -4],
-							[-3,  0,  6,  0, -3],
-							[-1, -3, -4, -3, -1]
-							], np.float32)
-	laplacian_3x3 = np.array([
-							[1,  1, 1],
-							[1, -8, 1],
-							[1,  1, 1]
-							], np.float32)
-	high_pass = np.array([
-						[-1, -1, -1],
-						[-1,  8, -1],
-						[-1, -1, -1]
-						], np.float32)
+	sharp = lambda k = 1: np.matrix('0,{0},0;{0},{1},{0};0,{0},0'.format(-k,1+4*k))
+	gaussian = np.array([[1, 2, 1], [2, 4, 2], [1, 2, 1] ], np.float32) / 16
+	high_pass = np.array([[-1, -1, -1], [-1, 8, -1], [-1, -1, -1]], np.float32)
+	laplacian = np.array([[-1, -3, -4, -3, -1], [-3, 0, 6, 0, -3], [-4, 6, 20, 6, -4], [-3, 0, 6, 0, -3], [-1, -3, -4, -3, -1]], np.float32)
 
 def convolution_filter(src, kernel):
 	dst = src.copy()
 	dst.data = cv2.filter2D(dst.data, -1, kernel)
+	return dst
+
+def find_edge(src):
+	def normalize(img):
+		return (img - img.min())/(img.max() - img.min())
+	'''
+	#dst = heightCorrection(src, True)
+	dst = src.copy()
+	gray = normalize(dst.data)
+	#白い部分を膨張させる
+	dilated = cv2.dilate(gray, np.ones((5, 5)), iterations=1)
+	#差をとる
+	dst.data = normalize(cv2.absdiff(dilated, gray))
+	'''
+	dst = convolution_filter(src, Kernels.laplacian)
+	return dst
+
+def enhance_edge(src, k = 1):
+	def normalize(img):
+		return (img - img.min())/(img.max() - img.min())
+	dst = src.copy()
+	edge = normalize(find_edge(src).data)
+	#dst.data += (edge - 0.5) * ((src.data.max() - src.data.min())/10) * k
+	#dst.data += (edge - 0.5) * k
+	#dst.data -= (edge - 0.5) * k
+	dst.data -= (edge - 0.5) * k/10.0
+	#dst.data -= edge * k/10.0
 	return dst
