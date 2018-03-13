@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-import cv2, copy, math, csv, numpy as np, pandas as pd
+import cv2, copy, math, csv, numpy as np, pandas as pd, numba
 from scipy import signal
+from numpy.lib.stride_tricks import as_strided
 
 #Class
 class niwaImgInfo:
@@ -62,11 +63,12 @@ class niwaImg(niwaImgInfo):
 	def __get_data(self):
 		return self.__data.copy()
 	def __set_data(self, new_data):
-		self.__data = new_data.copy()
+		#if all([s1 == s2 for s1, s2 in zip(self.shape, new_data.shape)]):
+		if list(self.shape) == list(new_data.shape):
+			self.__data = new_data.copy()
+		else:
+			self.__data = cv2.resize(new_data, (self.shape[1], self.shape[0]))
 		self._Zdata = np.array([self.__data.min(), self.__data.max()])
-		self._shape = np.array(self.data.shape)
-		self._lenppixel = self._XYlength[0] / self._shape[0]
-		self._ns2ppixel = (self._XYlength[0]*self._XYlength[1]) / (self._shape[0]*self._shape[1])
 	def __del_data(self):
 		del self.__data
 	data = property(__get_data, __set_data, __del_data)
@@ -86,7 +88,6 @@ class niwaImg(niwaImgInfo):
 		return niwaImgInfo(self)
 
 	def getOpenCVimageGray(self):
-		#gray_img = cv2.normalize(self.data, self.data, 0, 255, cv2.NORM_MINMAX)
 		if (self.zdata[1] - self.zdata[0]) <= 0:
 			print(self.zdata[1] - self.zdata[0])
 		gray_img = (self.data - self.zdata[0]) / (self.zdata[1] - self.zdata[0])
@@ -193,3 +194,58 @@ def writeTime(src, time, frame_num = ""):
 		dst = cv2.putText(dst, txt, position, font, font_size, (0, 0, 0), 2, cv2.LINE_AA)
 		dst = cv2.putText(dst, txt, position, font, font_size, (255, 255, 255), 1, cv2.LINE_AA)
 	return dst
+
+class Kernels:
+	sharp = lambda k = 1: np.matrix('0,{0},0;{0},{1},{0};0,{0},0'.format(-k,1+4*k))
+	average = np.array([[1, 1, 1, 1, 1] for i in range(5)]) / 5**2
+	gaussian = np.array([[1, 4, 6, 4, 1], [4, 16, 24, 16, 4], [6, 24, 36, 24, 6], [4, 16, 24, 16, 4], [1, 4, 6, 4, 1]], np.float32) / 4**4
+	#laplacian = np.array([[1, 1, 1], [1, -8, 1], [1, 1, 1]], np.float32)
+	laplacian = np.array([[-1, -3, -4, -3, -1], [-3, 0, 6, 0, -3], [-4, 6, 20, 6, -4], [-3, 0, 6, 0, -3], [-1, -3, -4, -3, -1]], np.float32)
+
+def convolution_filter(src, kernel):
+	dst = src.copy()
+	dst.data = cv2.filter2D(src.data, -1, kernel)
+	return dst
+
+def find_edge(src):
+	def normalize(img):
+		return (img - img.min()) / (img.max() - img.min())
+	dst = src.copy()
+	gray = normalize(dst.data)
+	#白い部分を膨張させる
+	dilated = cv2.dilate(gray, np.ones((5, 5)), iterations=1)
+	#差をとる
+	dst.data = normalize(cv2.absdiff(dilated, gray))
+	return dst
+
+def enhance_edge(src, k = 10.0):
+	def normalize(img):
+		return (img - img.min()) / (img.max() - img.min())
+	dst = src.copy()
+	edge = normalize(convolution_filter(find_edge(src), Kernels.gaussian).data)
+	dst.data -= (edge)*(src.data.max() - src.data.min()) * k/50.0
+	return dst
+
+def median_filter(src, ksize = 5):
+	h, w = src.shape[0], src.shape[1]
+	dst = src.copy()
+	scr_data = src.data
+	#近傍にある画素値の中央値を出力画像の画素値に設定
+	#'''
+	d = int((ksize-1)/2)
+	dst.data = np.array([[np.median(scr_data[y-d:y+d+1, x-d:x+d+1]) for x in range(d, w-d)] for y in range(d, h-d)])
+	'''
+	def extend_row(full_array, row_num, ksize):
+		return as_strided(full_array[row_num], (len(full_array[row_num])-int(ksize-1), ksize, ksize), (full_array.strides[1], full_array.strides[0], full_array.strides[1]))
+	dst.data = np.array([[np.median(data) for data in extend_row(scr_data, row_num, ksize)] for row_num in range(len(scr_data)-int((ksize-1)/2))])
+	#'''
+	return dst
+
+def gaussian_filter(src):
+	return convolution_filter(src, Kernels.gaussian)
+
+def average_filter(src):
+	return convolution_filter(src, Kernels.average)
+
+def laplacian_filter(src):
+	return convolution_filter(src, Kernels.laplacian)

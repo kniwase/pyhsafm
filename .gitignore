@@ -1,3 +1,9 @@
 
+<<<<<<< HEAD
 python3
 *.pyc
+=======
+*.pyc
+python3
+filter_test.py
+>>>>>>> feature-filter
