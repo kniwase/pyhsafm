@@ -224,7 +224,7 @@ def enhance_edge(src, k = 10.0):
 	def normalize(img):
 		return (img - img.min()) / (img.max() - img.min())
 	dst = src.copy()
-	edge = normalize(convolution_filter(find_edge(src), Kernels.gaussian(5)).data)
+	edge = normalize(convolution_filter(find_edge(src), Kernels.gaussian.data)
 	dst.data -= (edge - 0.5) * k/10.0
 	return dst
 
