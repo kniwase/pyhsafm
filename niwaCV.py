@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
-import cv2, copy, math, csv, numpy as np, pandas as pd
+import cv2, copy, math, csv, numpy as np, pandas as pd, numba
 from scipy import signal
-
-from multiprocessing import Pool, Process
-import multiprocessing as multi
+from numpy.lib.stride_tricks import as_strided
 
 #Class
 class niwaImgInfo:
@@ -225,16 +223,22 @@ def enhance_edge(src, k = 10.0):
 		return (img - img.min()) / (img.max() - img.min())
 	dst = src.copy()
 	edge = normalize(convolution_filter(find_edge(src), Kernels.gaussian).data)
-	dst.data -= (edge - 0.5) * k/10.0
+	dst.data -= (edge)*(src.data.max() - src.data.min()) * k/50.0
 	return dst
 
 def median_filter(src, ksize = 5):
-	d = int((ksize-1)/2)
 	h, w = src.shape[0], src.shape[1]
 	dst = src.copy()
 	scr_data = src.data
 	#近傍にある画素値の中央値を出力画像の画素値に設定
+	#'''
+	d = int((ksize-1)/2)
 	dst.data = np.array([[np.median(scr_data[y-d:y+d+1, x-d:x+d+1]) for x in range(d, w-d)] for y in range(d, h-d)])
+	'''
+	def extend_row(full_array, row_num, ksize):
+		return as_strided(full_array[row_num], (len(full_array[row_num])-int(ksize-1), ksize, ksize), (full_array.strides[1], full_array.strides[0], full_array.strides[1]))
+	dst.data = np.array([[np.median(data) for data in extend_row(scr_data, row_num, ksize)] for row_num in range(len(scr_data)-int((ksize-1)/2))])
+	#'''
 	return dst
 
 def gaussian_filter(src):
@@ -242,3 +246,6 @@ def gaussian_filter(src):
 
 def average_filter(src):
 	return convolution_filter(src, Kernels.average)
+
+def laplacian_filter(src):
+	return convolution_filter(src, Kernels.laplacian)
