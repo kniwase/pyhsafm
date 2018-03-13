@@ -16,8 +16,8 @@ dst = cv2.hconcat([img.getOpenCVimage(), res_img.getOpenCVimage()])
 
 start = time.time()
 res_img = niwaCV.median_filter(img, 5)
-elapsed_time = time.time() - start
-print ("elapsed_time:{0}".format(elapsed_time) + "[sec]")
+res_img = niwaCV.enhance_edge(res_img, 15)
+print("elapsed_time:{0}".format(time.time() - start) + "[sec]")
 
 dst = cv2.hconcat([img.getOpenCVimage(), res_img.getOpenCVimage()])
 cv2.imshow('test', dst)
