@@ -2,6 +2,9 @@
 import cv2, copy, math, csv, numpy as np, pandas as pd
 from scipy import signal
 
+from multiprocessing import Pool, Process
+import multiprocessing as multi
+
 #Class
 class niwaImgInfo:
 	def __init__(self, data, XYlength):
@@ -196,38 +199,46 @@ def writeTime(src, time, frame_num = ""):
 
 class Kernels:
 	sharp = lambda k = 1: np.matrix('0,{0},0;{0},{1},{0};0,{0},0'.format(-k,1+4*k))
-	gaussian = np.array([[1, 2, 1], [2, 4, 2], [1, 2, 1] ], np.float32) / 16
-	high_pass = np.array([[-1, -1, -1], [-1, 8, -1], [-1, -1, -1]], np.float32)
+	average = np.array([[1, 1, 1, 1, 1] for i in range(5)]) / 5**2
+	gaussian = np.array([[1, 4, 6, 4, 1], [4, 16, 24, 16, 4], [6, 24, 36, 24, 6], [4, 16, 24, 16, 4], [1, 4, 6, 4, 1]], np.float32) / 4**4
+	#laplacian = np.array([[1, 1, 1], [1, -8, 1], [1, 1, 1]], np.float32)
 	laplacian = np.array([[-1, -3, -4, -3, -1], [-3, 0, 6, 0, -3], [-4, 6, 20, 6, -4], [-3, 0, 6, 0, -3], [-1, -3, -4, -3, -1]], np.float32)
 
 def convolution_filter(src, kernel):
 	dst = src.copy()
-	dst.data = cv2.filter2D(dst.data, -1, kernel)
+	dst.data = cv2.filter2D(src.data, -1, kernel)
 	return dst
 
 def find_edge(src):
 	def normalize(img):
-		return (img - img.min())/(img.max() - img.min())
-	'''
-	#dst = heightCorrection(src, True)
+		return (img - img.min()) / (img.max() - img.min())
 	dst = src.copy()
 	gray = normalize(dst.data)
 	#白い部分を膨張させる
 	dilated = cv2.dilate(gray, np.ones((5, 5)), iterations=1)
 	#差をとる
 	dst.data = normalize(cv2.absdiff(dilated, gray))
-	'''
-	dst = convolution_filter(src, Kernels.laplacian)
 	return dst
 
-def enhance_edge(src, k = 1):
+def enhance_edge(src, k = 10.0):
 	def normalize(img):
-		return (img - img.min())/(img.max() - img.min())
+		return (img - img.min()) / (img.max() - img.min())
 	dst = src.copy()
-	edge = normalize(find_edge(src).data)
-	#dst.data += (edge - 0.5) * ((src.data.max() - src.data.min())/10) * k
-	#dst.data += (edge - 0.5) * k
-	#dst.data -= (edge - 0.5) * k
+	edge = normalize(convolution_filter(find_edge(src), Kernels.gaussian(5)).data)
 	dst.data -= (edge - 0.5) * k/10.0
-	#dst.data -= edge * k/10.0
 	return dst
+
+def median_filter(src, ksize = 5):
+	d = int((ksize-1)/2)
+	h, w = src.shape[0], src.shape[1]
+	dst = src.copy()
+	scr_data = src.data
+	#近傍にある画素値の中央値を出力画像の画素値に設定
+	dst.data = np.array([[np.median(scr_data[y-d:y+d+1, x-d:x+d+1]) for x in range(d, w-d)] for y in range(d, h-d)])
+	return dst
+
+def gaussian_filter(src):
+	return convolution_filter(src, Kernels.gaussian)
+
+def average_filter(src):
+	return convolution_filter(src, Kernels.average)
