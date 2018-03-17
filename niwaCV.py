@@ -143,6 +143,7 @@ class ASD_handler():
 			start = idx.start if idx.start != None else 0
 			stop  = idx.stop  if idx.stop  != None else self.__FrameNum
 			step  = idx.step  if idx.step  != None else 1
+			if step == 0: raise IndexError
 			if start < 0: start = self.__FrameNum + start
 			if stop  < 0: stop  = self.__FrameNum + stop
 			if start <= self.__FrameNum and stop <= self.__FrameNum:
