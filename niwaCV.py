@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import cv2, copy, math, csv, numpy as np, pandas as pd, numba
+import cv2, struct, copy, math, csv, numpy as np, pandas as pd, numba
 from scipy import signal
 from numpy.lib.stride_tricks import as_strided
 
@@ -54,12 +54,20 @@ class niwaImgInfo:
 	ns2ppixel = property(__get_ns2ppixel, __set_ns2ppixel, __del_ns2ppixel)
 
 class niwaImg(niwaImgInfo):
-	def __init__(self, data, XYlength):
+	def __init__(self, data, XYlength, idx = None):
+		self.__idx = idx
 		self.__data = data.copy()
 		self.__ori_data = data.copy()
 		super(niwaImg, self).__init__(self.__ori_data, XYlength)
 
 	#accessors
+	def __get_idx(self):
+		return self.__idx
+	def __set_idx(self, value):
+		raise NameError('image index is read only')
+	def __del_idx(self):
+		del self.__idx
+	index = property(__get_idx, __set_idx, __del_idx)
 	def __get_data(self):
 		return self.__data.copy()
 	def __set_data(self, new_data):
@@ -109,15 +117,96 @@ class niwaImg(niwaImgInfo):
 							 'peak': pd.Series(peak[0])})
 		return data
 
+
+class ASD_handler():
+	def __init__(self, path):
+		self.file = open(path, 'rb')
+		self.__header = self.__read_header()
+		self.header = self.__header
+		self.__cache = []
+		self.__cache_list = []
+		self.__FrameNum = self.__header['FrameNum']
+
+	def __img_generator(self, start, stop, step):
+		for idx in range(start, stop, step):
+			yield self.__read_frame(idx)
+
+	def __len__(self):
+		return self.__FrameNum
+
+	def __iter__(self):
+		for idx in range(self.__FrameNum):
+			yield self.__read_frame(idx)
+
+	def __getitem__(self, idx):
+		if type(idx) == slice:
+			start = idx.start if idx.start != None else 0
+			stop  = idx.stop  if idx.stop  != None else self.__FrameNum
+			step  = idx.step  if idx.step  != None else 1
+			if start < 0: start = self.__FrameNum + start
+			if stop  < 0: stop  = self.__FrameNum + stop
+			if start <= self.__FrameNum and stop <= self.__FrameNum:
+				return self.__img_generator(start, stop, step)
+			else:
+				raise IndexError
+		else:
+			if idx < self.__FrameNum:
+				return self.__read_frame(idx if idx >= 0 else self.__FrameNum + idx)
+			else:
+				raise IndexError
+
+	def release(self):
+		self.file.close()
+
+	def __read_header(self):
+		self.file.seek(0)
+		header_bin = self.file.read(165)
+		#header_format = '=iiiiiiiiiiiiiiiibiiiiiiiiifffiiiiiiiffffff'
+		#header_keys = ['FileType', 'FileHeaderSizeForSave', 'FrameHeaderSize', 'TextEncoding', 'OpeNameSize', 'CommentSizeForSave', 'DataType1ch', 'DataType2ch', 'FrameNum', 'ImageNum', 'ScanDirection', 'ScanTryNum', 'XPixel', 'YPixel', 'XScanSize', 'YScanSize', 'AveFlag', 'AverageNum', 'Year', 'Month', 'Day', 'Hour', 'Minute', 'Second', 'XRound', 'YRound', 'FrameTime', 'Sensitivity', 'PhaseSens', 'Offset1', 'Offset2', 'Offset3', 'Offset4', 'MachineNo', 'ADRange', 'ADResolution', 'MaxScanSizeX', 'MaxScanSizeY', 'PiezoConstX', 'PiezoConstY', 'PiezoConstZ', 'DriverGainZ']
+		header_format = '=xxxxiixxxxiixxxxxxxxiiiiiiiixxxxxiiiiiixxxxxxxxfxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxffff'
+		header_keys = ['FileHeaderSizeForSave', 'FrameHeaderSize', 'OpeNameSize', 'CommentSizeForSave', 'FrameNum', 'ImageNum', 'ScanDirection', 'ScanTryNum', 'XPixel', 'YPixel', 'XScanSize', 'YScanSize', 'Year', 'Month', 'Day', 'Hour', 'Minute', 'Second', 'FrameTime', 'PiezoConstX', 'PiezoConstY', 'PiezoConstZ', 'DriverGainZ']
+		header = {key:d for key, d in zip(header_keys, struct.unpack_from(header_format, header_bin, 0))}
+
+		OpeName_bin = self.file.read(header['OpeNameSize'])
+		OpeName = OpeName_bin.decode('shift_jis')
+		header['OpeName'] = OpeName
+
+		Comment_bin = self.file.read(header['CommentSizeForSave'])
+		Comment = Comment_bin.decode('shift_jis').replace('\r', '\n').rstrip('\n')
+		header['Comment'] = Comment
+		self.file.seek(0)
+		return header
+
+	def __read_frame(self, idx):
+		header_point = 165 + self.__header['OpeNameSize'] + self.__header['CommentSizeForSave']
+		DriverGainZ, PiezoConstZ, XPixel, YPixel, XScanSize, YScanSize = [self.__header[key] for key in ['DriverGainZ', 'PiezoConstZ', 'XPixel', 'YPixel', 'XScanSize', 'YScanSize']]
+		self.file.seek(header_point + (32 + 2*XPixel*YPixel)*idx + 32)
+		data = np.fromfile(self.file, dtype = 'int16', count = XPixel*YPixel, sep = '')
+		data = 10.0/4096.0 * DriverGainZ * PiezoConstZ * (-data + 2048.0)
+		data = data - np.mean(data)
+		data = data.reshape(YPixel, XPixel)[::-1]
+		size_times = 3
+		new_size = (YScanSize*size_times, XScanSize*size_times)
+		data = cv2.resize(data, new_size)
+		img = niwaImg(data, (YPixel, XPixel), idx)
+		self.file.seek(0)
+		return img
+
+class ASD_reader():
+	def __init__(self, path):
+		self.ASD_reader = ASD_handler(path)
+	def __enter__(self):
+		return self.ASD_reader
+	def __exit__(self, type, value, traceback):
+		self.ASD_reader.release()
+
 class movieWriter:
 	def __init__(self, path, frame_time, imgShape):
 		self.fourcc = cv2.VideoWriter_fourcc(*'avc1')
 		self.fps = 1.0 / frame_time
 		self.movieWriter = cv2.VideoWriter(path, self.fourcc, self.fps, (imgShape[1], imgShape[0]))
-
 	def __enter__(self):
 		return self.movieWriter
-
 	def __exit__(self, type, value, traceback):
 		print("   Saving Movie   ")
 		self.movieWriter.release()
@@ -138,10 +227,18 @@ def readInfo(path):
 	return niwaImgInfo(src.data, src.XYlength)
 
 def writeImg(path, img):
-	cv2.imwrite(path, img.getImage())
+	cv2.imwrite(path, img.getOpenCVimage())
 
 def writeImgGray(path, img):
-	cv2.imwrite(path, img.getImageGray())
+	cv2.imwrite(path, img.getOpenCVimageGray())
+
+def showImg(img, text =''):
+	cv2.imshow(text, img.getOpenCVimage())
+	cv2.waitKey(0)
+
+def showImgGray(img, text = ''):
+	cv2.imshow(text, img.getOpenCVimageGray())
+	cv2.waitKey(0)
 
 #戻り値はniwaCV形式の画像
 def binarize(src, lowest, highest = True):
