@@ -54,8 +54,9 @@ class niwaImgInfo:
 	ns2ppixel = property(__get_ns2ppixel, __set_ns2ppixel, __del_ns2ppixel)
 
 class niwaImg(niwaImgInfo):
-	def __init__(self, data, XYlength, idx = None):
+	def __init__(self, data, XYlength, idx = None, frame_header = None):
 		self.__idx = idx
+		self.frame_header = frame_header
 		self.__data = data.copy()
 		self.__ori_data = data.copy()
 		super(niwaImg, self).__init__(self.__ori_data, XYlength)
@@ -162,10 +163,10 @@ class ASD_handler():
 	def __read_header(self):
 		self.file.seek(0)
 		header_bin = self.file.read(165)
-		#header_format = '=iiiiiiiiiiiiiiiibiiiiiiiiifffiiiiiiiffffff'
-		#header_keys = ['FileType', 'FileHeaderSizeForSave', 'FrameHeaderSize', 'TextEncoding', 'OpeNameSize', 'CommentSizeForSave', 'DataType1ch', 'DataType2ch', 'FrameNum', 'ImageNum', 'ScanDirection', 'ScanTryNum', 'XPixel', 'YPixel', 'XScanSize', 'YScanSize', 'AveFlag', 'AverageNum', 'Year', 'Month', 'Day', 'Hour', 'Minute', 'Second', 'XRound', 'YRound', 'FrameTime', 'Sensitivity', 'PhaseSens', 'Offset1', 'Offset2', 'Offset3', 'Offset4', 'MachineNo', 'ADRange', 'ADResolution', 'MaxScanSizeX', 'MaxScanSizeY', 'PiezoConstX', 'PiezoConstY', 'PiezoConstZ', 'DriverGainZ']
-		header_format = '=xxxxiixxxxiixxxxxxxxiiiiiiiixxxxxiiiiiixxxxxxxxfxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxffff'
-		header_keys = ['FileHeaderSizeForSave', 'FrameHeaderSize', 'OpeNameSize', 'CommentSizeForSave', 'FrameNum', 'ImageNum', 'ScanDirection', 'ScanTryNum', 'XPixel', 'YPixel', 'XScanSize', 'YScanSize', 'Year', 'Month', 'Day', 'Hour', 'Minute', 'Second', 'FrameTime', 'PiezoConstX', 'PiezoConstY', 'PiezoConstZ', 'DriverGainZ']
+		header_format = '=iiiiiiiiiiiiiiiibiiiiiiiiifffiiiiiiiffffff'
+		header_keys = ['FileType', 'FileHeaderSizeForSave', 'FrameHeaderSize', 'TextEncoding', 'OpeNameSize', 'CommentSizeForSave', 'DataType1ch', 'DataType2ch', 'FrameNum', 'ImageNum', 'ScanDirection', 'ScanTryNum', 'XPixel', 'YPixel', 'XScanSize', 'YScanSize', 'AveFlag', 'AverageNum', 'Year', 'Month', 'Day', 'Hour', 'Minute', 'Second', 'XRound', 'YRound', 'FrameTime', 'Sensitivity', 'PhaseSens', 'Offset1', 'Offset2', 'Offset3', 'Offset4', 'MachineNo', 'ADRange', 'ADResolution', 'MaxScanSizeX', 'MaxScanSizeY', 'PiezoConstX', 'PiezoConstY', 'PiezoConstZ', 'DriverGainZ']
+		#header_format = '=xxxxiixxxxiixxxxxxxxiiiiiiiixxxxxiiiiiixxxxxxxxfxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxffff'
+		#header_keys = ['FileHeaderSizeForSave', 'FrameHeaderSize', 'OpeNameSize', 'CommentSizeForSave', 'FrameNum', 'ImageNum', 'ScanDirection', 'ScanTryNum', 'XPixel', 'YPixel', 'XScanSize', 'YScanSize', 'Year', 'Month', 'Day', 'Hour', 'Minute', 'Second', 'FrameTime', 'PiezoConstX', 'PiezoConstY', 'PiezoConstZ', 'DriverGainZ']
 		header = {key:d for key, d in zip(header_keys, struct.unpack_from(header_format, header_bin, 0))}
 
 		OpeName_bin = self.file.read(header['OpeNameSize'])
@@ -181,7 +182,11 @@ class ASD_handler():
 	def __read_frame(self, idx):
 		header_point = 165 + self.__header['OpeNameSize'] + self.__header['CommentSizeForSave']
 		DriverGainZ, PiezoConstZ, XPixel, YPixel, XScanSize, YScanSize = [self.__header[key] for key in ['DriverGainZ', 'PiezoConstZ', 'XPixel', 'YPixel', 'XScanSize', 'YScanSize']]
-		self.file.seek(header_point + (32 + 2*XPixel*YPixel)*idx + 32)
+		self.file.seek(header_point + (32 + 2*XPixel*YPixel)*idx)
+		frame_header_bin = self.file.read(32)
+		frame_header_format = '=IHHhhffbbhii'
+		frame_header_keys = ['CurrentNum', 'MaxData', 'MiniData', 'XOffset', 'YOffset', 'XTilt', 'YTilt', 'LaserFlag', 'Reserved', 'Reserved', 'Reserved', 'Reserved']
+		frame_header = {key:d for key, d in zip(frame_header_keys, struct.unpack_from(frame_header_format, frame_header_bin, 0))}
 		data = np.fromfile(self.file, dtype = 'int16', count = XPixel*YPixel, sep = '')
 		data = 10.0/4096.0 * DriverGainZ * PiezoConstZ * (-data + 2048.0)
 		data = data - np.mean(data)
@@ -189,7 +194,7 @@ class ASD_handler():
 		size_times = 3
 		new_size = (YScanSize*size_times, XScanSize*size_times)
 		data = cv2.resize(data, new_size)
-		img = niwaImg(data, (YPixel, XPixel), idx)
+		img = niwaImg(data, (YPixel, XPixel), idx, frame_header)
 		self.file.seek(0)
 		return img
 
