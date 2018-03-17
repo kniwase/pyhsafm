@@ -156,7 +156,7 @@ class ASD_handler():
 			else:
 				raise IndexError
 
-	def release(self):
+	def __release(self):
 		self.file.close()
 
 	def __read_header(self):
@@ -199,7 +199,7 @@ class ASD_reader():
 	def __enter__(self):
 		return self.ASD_reader
 	def __exit__(self, type, value, traceback):
-		self.ASD_reader.release()
+		self.ASD_reader._ASD_handler__release()
 
 class movieWriter:
 	def __init__(self, path, frame_time, imgShape):
@@ -324,54 +324,21 @@ def enhance_edge(src, k = 10.0):
 	dst.data -= (edge)*(src.data.max() - src.data.min()) * k/50.0
 	return dst
 
-'''
-@numba.jit('f8[:, :](i4[:], i4[:], i4)')
-def __get_idx(src_data_shape, dst_data_shape, ksize):
-	d, i = int((ksize-1)/2), 0
-	idx = np.zeros((dst_data_shape[0]*dst_data_shape[1], 4), np.int32)
-	for y in range(d, src_data_shape[0]-d):
-		for x in range(d, src_data_shape[1]-d):
-			idx[i][0] += y-d
-			idx[i][1] += y+d+1
-			idx[i][2] += x-d
-			idx[i][3] += x+d+1
-			i += 1
-	return idx
-
-@numba.jit('f8[:, :](f8[:, :], i4)')
-def __median_filter(src_data, ksize):
-	med = ksize**2//2
-	dst_data_shape = (src_data.shape[0]-(ksize-1), src_data.shape[1]-(ksize-1))
-	dst_data = np.zeros(dst_data_shape[0]*dst_data_shape[1])
-	idxs = __get_idx(src_data.shape, dst_data_shape, ksize)
-	for i, idx in enumerate(idxs):
-		dst_data[i] += np.sort(src_data[idx[0]:idx[1], idx[2]:idx[3]].flatten())[med]
-	return dst_data.reshape(dst_data_shape)
-
-def median_filter(src, ksize = 5):
-	dst = src.copy()
-	#近傍にある画素値の中央値を出力画像の画素値に設定
-	dst.data = __median_filter(dst.data, ksize)
-	return dst
-
-'''
-
 @numba.jit('f8[:, :](f8[:, :], i4)', nopython=True)
 def __median_filter(src_data, ksize):
 	h, w, d, med = src_data.shape[0], src_data.shape[1], int((ksize-1)/2), ksize**2//2
 	dst_data = np.zeros((src_data.shape[0]-(ksize-1), src_data.shape[1]-(ksize-1)))
-	for y in range(d, h-d):
-		for x in range(d, w-d):
+	for y in np.arange(d, h-d):
+		for x in np.arange(d, w-d):
 			dst_data[y-d][x-d] += np.sort(src_data[y-d:y+d+1, x-d:x+d+1].flatten())[med]
 	return dst_data
 
 #@numba.autojit
 def median_filter(src, ksize = 5):
-	dst = src.copy()
 	#近傍にある画素値の中央値を出力画像の画素値に設定
+	dst = src.copy()
 	dst.data = __median_filter(src.data, ksize)
 	return dst
-#'''
 
 def gaussian_filter(src):
 	return convolution_filter(src, Kernels.gaussian)
