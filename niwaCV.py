@@ -324,30 +324,24 @@ def enhance_edge(src, k = 10.0):
 	dst.data -= (edge)*(src.data.max() - src.data.min()) * k/50.0
 	return dst
 
-@numba.jit('int32[:,:](int32, int32, int32)', nopython=True)
-def __get_idx(h, w, ksize):
+@numba.jit('float64[:,:](float64[:, :], int32)', nopython=True)
+def __median_filter(src_data, ksize):
+	h, w = src_data.shape[0], src_data.shape[1]
+	h_dst, w_dst = h-(ksize-1), w-(ksize-1)
 	d, med = (ksize-1)//2, ksize**2//2
-	idx = np.empty(((h-(ksize-1))*(w-(ksize-1)), 5), dtype = np.int32)
-	i = 0
+	dst_data = np.empty((h_dst, w_dst), dtype = np.float64)
 	for y in range(d, h-d):
 		for x in range(d, w-d):
-			idx[i][0], idx[i][1], idx[i][2], idx[i][3], idx[i][4] = y-d, y+d+1, x-d, x+d+1, med
-			i += 1
-	return idx
-
-@numba.jit('float64[:](float64[:, :], int32[:, :])', nopython=True)
-def __median_filter(src_data, idx):
-	dst_data = np.empty(len(idx), dtype = np.float64)
-	for i in range(len(idx)):
-		dst_data[i] = np.sort(src_data[idx[i][0]:idx[i][1], idx[i][2]:idx[i][3]].flatten())[idx[i][4]]
+			tmp_data = src_data[y-d:y+d+1, x-d:x+d+1].flatten()
+			tmp_data.sort()
+			dst_data[y-d][x-d] = tmp_data[med]
 	return dst_data
 
 @numba.jit
 def median_filter(src, ksize = 5):
-	idx = __get_idx(src.shape[0], src.shape[1], ksize)
 	#近傍にある画素値の中央値を出力画像の画素値に設定
 	dst = src.copy()
-	dst.data = __median_filter(src.data, idx).reshape(src.shape-(ksize-1))
+	dst.data = __median_filter(src.data, ksize)
 	return dst
 
 def gaussian_filter(src):
