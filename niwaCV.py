@@ -74,7 +74,7 @@ class niwaImg(niwaImgInfo):
 	def __set_data(self, new_data):
 		#if all([s1 == s2 for s1, s2 in zip(self.shape, new_data.shape)]):
 		if list(self.shape) == list(new_data.shape):
-			self.__data = new_data.copy()
+			self.__data = new_data#.copy()
 		else:
 			self.__data = cv2.resize(new_data, (self.shape[1], self.shape[0]))
 		self._Zdata = np.array([self.__data.min(), self.__data.max()])
@@ -329,16 +329,20 @@ def enhance_edge(src, k = 10.0):
 	dst.data -= (edge)*(src.data.max() - src.data.min()) * k/50.0
 	return dst
 
-@numba.jit('f8[:, :](f8[:, :], i4)', nopython=True)
+@numba.jit('float64[:,:](float64[:, :], int32)', nopython=True)
 def __median_filter(src_data, ksize):
-	h, w, d, med = src_data.shape[0], src_data.shape[1], int((ksize-1)/2), ksize**2//2
-	dst_data = np.zeros((src_data.shape[0]-(ksize-1), src_data.shape[1]-(ksize-1)))
-	for y in np.arange(d, h-d):
-		for x in np.arange(d, w-d):
-			dst_data[y-d][x-d] += np.sort(src_data[y-d:y+d+1, x-d:x+d+1].flatten())[med]
+	h, w = src_data.shape[0], src_data.shape[1]
+	h_dst, w_dst = h-(ksize-1), w-(ksize-1)
+	d, med = (ksize-1)//2, ksize**2//2
+	dst_data = np.empty((h_dst, w_dst), dtype = np.float64)
+	for y in range(d, h-d):
+		for x in range(d, w-d):
+			tmp_data = src_data[y-d:y+d+1, x-d:x+d+1].flatten()
+			tmp_data.sort()
+			dst_data[y-d][x-d] = tmp_data[med]
 	return dst_data
 
-#@numba.autojit
+@numba.jit
 def median_filter(src, ksize = 5):
 	#近傍にある画素値の中央値を出力画像の画素値に設定
 	dst = src.copy()
