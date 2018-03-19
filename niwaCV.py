@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import cv2, struct, copy, math, csv, numpy as np, pandas as pd, numba
 from scipy import signal
-from numpy.lib.stride_tricks import as_strided
 
 #Class
 class niwaImgInfo:
@@ -121,12 +120,15 @@ class niwaImg(niwaImgInfo):
 
 class ASD_handler():
 	def __init__(self, path):
-		self.file = open(path, 'rb')
+		self.__file = open(path, 'rb')
 		self.__header = self.__read_header()
 		self.header = self.__header
 		self.__cache = []
 		self.__cache_list = []
 		self.__FrameNum = self.__header['FrameNum']
+
+	def __del__(self):
+		self.__file.close()
 
 	def __img_generator(self, start, stop, step):
 		for idx in range(start, stop, step):
@@ -157,37 +159,37 @@ class ASD_handler():
 			else:
 				raise IndexError
 
-	def __release(self):
-		self.file.close()
+	def release(self):
+		self.__file.close()
 
 	def __read_header(self):
-		self.file.seek(0)
-		header_bin = self.file.read(165)
+		self.__file.seek(0)
+		header_bin = self.__file.read(165)
 		header_format = '=iiiiiiiiiiiiiiiibiiiiiiiiifffiiiiiiiffffff'
 		header_keys = ['FileType', 'FileHeaderSizeForSave', 'FrameHeaderSize', 'TextEncoding', 'OpeNameSize', 'CommentSizeForSave', 'DataType1ch', 'DataType2ch', 'FrameNum', 'ImageNum', 'ScanDirection', 'ScanTryNum', 'XPixel', 'YPixel', 'XScanSize', 'YScanSize', 'AveFlag', 'AverageNum', 'Year', 'Month', 'Day', 'Hour', 'Minute', 'Second', 'XRound', 'YRound', 'FrameTime', 'Sensitivity', 'PhaseSens', 'Offset1', 'Offset2', 'Offset3', 'Offset4', 'MachineNo', 'ADRange', 'ADResolution', 'MaxScanSizeX', 'MaxScanSizeY', 'PiezoConstX', 'PiezoConstY', 'PiezoConstZ', 'DriverGainZ']
 		#header_format = '=xxxxiixxxxiixxxxxxxxiiiiiiiixxxxxiiiiiixxxxxxxxfxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxffff'
 		#header_keys = ['FileHeaderSizeForSave', 'FrameHeaderSize', 'OpeNameSize', 'CommentSizeForSave', 'FrameNum', 'ImageNum', 'ScanDirection', 'ScanTryNum', 'XPixel', 'YPixel', 'XScanSize', 'YScanSize', 'Year', 'Month', 'Day', 'Hour', 'Minute', 'Second', 'FrameTime', 'PiezoConstX', 'PiezoConstY', 'PiezoConstZ', 'DriverGainZ']
 		header = {key:d for key, d in zip(header_keys, struct.unpack_from(header_format, header_bin, 0))}
 
-		OpeName_bin = self.file.read(header['OpeNameSize'])
+		OpeName_bin = self.__file.read(header['OpeNameSize'])
 		OpeName = OpeName_bin.decode('shift_jis')
 		header['OpeName'] = OpeName
 
-		Comment_bin = self.file.read(header['CommentSizeForSave'])
+		Comment_bin = self.__file.read(header['CommentSizeForSave'])
 		Comment = Comment_bin.decode('shift_jis').replace('\r', '\n').rstrip('\n')
 		header['Comment'] = Comment
-		self.file.seek(0)
+		self.__file.seek(0)
 		return header
 
 	def __read_frame(self, idx):
 		header_point = 165 + self.__header['OpeNameSize'] + self.__header['CommentSizeForSave']
 		DriverGainZ, PiezoConstZ, XPixel, YPixel, XScanSize, YScanSize = [self.__header[key] for key in ['DriverGainZ', 'PiezoConstZ', 'XPixel', 'YPixel', 'XScanSize', 'YScanSize']]
-		self.file.seek(header_point + (32 + 2*XPixel*YPixel)*idx)
-		frame_header_bin = self.file.read(32)
+		self.__file.seek(header_point + (32 + 2*XPixel*YPixel)*idx)
+		frame_header_bin = self.__file.read(32)
 		frame_header_format = '=IHHhhffbbhii'
 		frame_header_keys = ['CurrentNum', 'MaxData', 'MiniData', 'XOffset', 'YOffset', 'XTilt', 'YTilt', 'LaserFlag', 'Reserved', 'Reserved', 'Reserved', 'Reserved']
 		frame_header = {key:d for key, d in zip(frame_header_keys, struct.unpack_from(frame_header_format, frame_header_bin, 0))}
-		data = np.fromfile(self.file, dtype = 'int16', count = XPixel*YPixel, sep = '')
+		data = np.fromfile(self.__file, dtype = 'int16', count = XPixel*YPixel, sep = '')
 		data = 10.0/4096.0 * DriverGainZ * PiezoConstZ * (-data + 2048.0)
 		data = data - np.mean(data)
 		data = data.reshape(YPixel, XPixel)[::-1]
@@ -195,7 +197,7 @@ class ASD_handler():
 		new_size = (YScanSize*size_times, XScanSize*size_times)
 		data = cv2.resize(data, new_size)
 		img = niwaImg(data, (YPixel, XPixel), idx, frame_header)
-		self.file.seek(0)
+		self.__file.seek(0)
 		return img
 
 class ASD_reader():
@@ -204,7 +206,7 @@ class ASD_reader():
 	def __enter__(self):
 		return self.ASD_reader
 	def __exit__(self, type, value, traceback):
-		self.ASD_reader._ASD_handler__release()
+		self.ASD_reader.release()
 
 class movieWriter:
 	def __init__(self, path, frame_time, imgShape):
