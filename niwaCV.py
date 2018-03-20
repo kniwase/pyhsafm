@@ -194,7 +194,7 @@ class ASD_handler():
 		data = data - np.mean(data)
 		data = data.reshape(YPixel, XPixel)[::-1]
 		size_times = 3
-		new_size = (YScanSize*size_times, XScanSize*size_times)
+		new_size = (YPixel*size_times, XPixel*size_times)
 		data = cv2.resize(data, new_size)
 		img = niwaImg(data, (YPixel, XPixel), idx, frame_header)
 		self.__file.seek(0)
@@ -226,7 +226,7 @@ def readImg(path):
 	data = [row[1:-1] for row in csv_data[4:]]
 	data = np.array(data[::-1])
 	size_times = 3
-	new_size = (XYlength[0]*size_times, XYlength[1]*size_times) #実際の長さベース
+	new_size = (data.shape[0]*size_times, data.shape[1]*size_times) #ピクセル数ベース
 	data = cv2.resize(data, new_size)
 	return niwaImg(data, XYlength)
 
