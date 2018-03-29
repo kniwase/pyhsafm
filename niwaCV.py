@@ -103,10 +103,10 @@ class niwaImg(niwaImgInfo):
 		return gray_img
 
 	def getOpenCVimage(self):
-		H = np.ones(self.shape, np.uint8)*19
-		L = self.getOpenCVimageGray()
-		S = np.ones(self.shape, np.uint8)*255
-		img_color = np.dstack([H, L, S])
+		img_color = np.zeros((*self.shape, 3), np.uint8)
+		img_color[:,:,0] = np.ones(self.shape, np.uint8)*19
+		img_color[:,:,1] = self.getOpenCVimageGray()
+		img_color[:,:,2] = np.ones(self.shape, np.uint8)*255
 		return cv2.cvtColor(img_color, cv2.COLOR_HLS2BGR)
 
 	def getHistogram(self, b = 256, o = 30):
