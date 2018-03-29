@@ -73,7 +73,7 @@ class niwaImg(niwaImgInfo):
 	def __set_data(self, new_data):
 		#if all([s1 == s2 for s1, s2 in zip(self.shape, new_data.shape)]):
 		if list(self.shape) == list(new_data.shape):
-			self.__data = new_data#.copy()
+			self.__data = new_data.copy()
 		else:
 			self.__data = cv2.resize(new_data, (self.shape[1], self.shape[0]))
 		self._Zdata = np.array([self.__data.min(), self.__data.max()])
@@ -103,10 +103,10 @@ class niwaImg(niwaImgInfo):
 		return gray_img
 
 	def getOpenCVimage(self):
-		H = np.ones(self.shape, np.uint8)*19
-		L = self.getOpenCVimageGray()
-		S = np.ones(self.shape, np.uint8)*255
-		img_color = np.dstack([H, L, S])
+		img_color = np.zeros((*self.shape, 3), np.uint8)
+		img_color[:,:,0] = np.ones(self.shape, np.uint8)*19
+		img_color[:,:,1] = self.getOpenCVimageGray()
+		img_color[:,:,2] = np.ones(self.shape, np.uint8)*255
 		return cv2.cvtColor(img_color, cv2.COLOR_HLS2BGR)
 
 	def getHistogram(self, b = 256, o = 30):
@@ -194,7 +194,7 @@ class ASD_handler():
 		data = data - np.mean(data)
 		data = data.reshape(YPixel, XPixel)[::-1]
 		size_times = 3
-		new_size = (YPixel*size_times, XPixel*size_times)
+		new_size = (XPixel*size_times, YPixel*size_times)
 		data = cv2.resize(data, new_size)
 		img = niwaImg(data, (YPixel, XPixel), idx, frame_header)
 		self.__file.seek(0)
