@@ -333,10 +333,10 @@ def find_edge(src):
 		return (img - img.min()) / (img.max() - img.min())
 	dst = src.copy()
 	gray = normalize(dst.data)
-	#白い部分を膨張させる
-	dilated = cv2.dilate(gray, np.ones((5, 5)), iterations=1)
+	#白い部分を収縮させる
+	dilated = cv2.erode(gray, np.ones((5, 5)), iterations=1)
 	#差をとる
-	dst.data = normalize(cv2.absdiff(dilated, gray))
+	dst.data = normalize(cv2.absdiff(gray, dilated))
 	return dst
 
 def enhance_edge(src, k = 10.0):
