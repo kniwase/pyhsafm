@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import cv2, struct, copy, math, csv, numpy as np, pandas as pd, numba
 from scipy import signal
+from sklearn import linear_model
 
 #Class
 class niwaImgInfo:
@@ -202,11 +203,11 @@ class ASD_handler():
 
 class ASD_reader():
 	def __init__(self, path):
-		self.ASD_reader = ASD_handler(path)
+		self.handler = ASD_handler(path)
 	def __enter__(self):
-		return self.ASD_reader
+		return self.handler
 	def __exit__(self, type, value, traceback):
-		self.ASD_reader.release()
+		self.handler.release()
 
 class movieWriter:
 	def __init__(self, path, frame_time, imgShape):
@@ -269,8 +270,9 @@ def binarize(src, lowest, highest = True):
 def heightCorrection(src, makeItZero = False, peak_num = 1, b = 512, o = 10):
 	dst = src.copy()
 	hist = np.histogram(dst.data, bins=b)
-	peak = signal.argrelmax(hist[0], order=o)
-	dst.data = dst.data - hist[1][peak[0][peak_num - 1]]
+	peak_idx = signal.argrelmax(hist[0], order=o)[0]
+	peak = hist[1][peak_idx[peak_num - 1]]
+	dst.data = dst.data - peak
 	if makeItZero:
 		black = np.zeros_like(dst.data, dtype='uint8')
 		dst.data = np.where(dst.data >= 0.0, dst.data, black)
@@ -280,6 +282,20 @@ def heightScaling(src, highest):
 	dst = src.copy()
 	white = np.zeros(dst.shape, dtype='float') + highest
 	dst.data = np.where(dst.data <= highest, dst.data, white)
+	return dst
+
+def tiltCorrection(src, th_range = 1.0):
+	dst = heightCorrection(src)
+	explanatory_var = np.where(dst.data <= th_range)
+	explanatory_var = list(zip(*explanatory_var))
+	data = dst.data
+	data = np.array([data[x,y] for x, y in explanatory_var])
+	clf = linear_model.LinearRegression()
+	clf.fit(explanatory_var, data)
+	coef = clf.coef_
+	var = [[x, y] for i in range(src.shape[0]) for x, y in enumerate([i for j in range(src.shape[1])])]
+	data = np.array([value - (var[0]*coef[0] + var[1]*coef[1]) for var, value in zip(var, src.data.flatten())])
+	dst.data = data.reshape(dst.shape)
 	return dst
 
 def writeTime(src, time, frame_num = ""):
