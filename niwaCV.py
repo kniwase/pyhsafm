@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import cv2, struct, copy, math, csv, numpy as np, pandas as pd, numba
+import cv2, struct, copy, math, csv, numpy as np, pandas as pd, numba, warnings
 from scipy import signal
 from sklearn import linear_model
 
@@ -290,11 +290,11 @@ def tiltCorrection(src, th_range = 1.0):
 	explanatory_var = list(zip(*explanatory_var))
 	data = dst.data
 	data = np.array([data[x,y] for x, y in explanatory_var])
+	warnings.filterwarnings(action="ignore", module="scipy", message="^internal gelsd")
 	clf = linear_model.LinearRegression()
 	clf.fit(explanatory_var, data)
-	coef = clf.coef_
 	var = [[x, y] for i in range(src.shape[0]) for x, y in enumerate([i for j in range(src.shape[1])])]
-	data = np.array([value - (var[0]*coef[0] + var[1]*coef[1]) for var, value in zip(var, src.data.flatten())])
+	data = np.array([value - np.dot(var, clf.coef_) for var, value in zip(var, src.data.flatten())])
 	dst.data = data.reshape(dst.shape)
 	return dst
 
@@ -316,35 +316,128 @@ def writeTime(src, time, frame_num = ""):
 		dst = cv2.putText(dst, txt, position, font, font_size, (255, 255, 255), 1, cv2.LINE_AA)
 	return dst
 
-class Kernels:
-	sharp = lambda k = 1: np.matrix('0,{0},0;{0},{1},{0};0,{0},0'.format(-k,1+4*k))
-	average = np.array([[1, 1, 1, 1, 1] for i in range(5)]) / 5**2
-	gaussian = np.array([[1, 4, 6, 4, 1], [4, 16, 24, 16, 4], [6, 24, 36, 24, 6], [4, 16, 24, 16, 4], [1, 4, 6, 4, 1]], np.float32) / 4**4
-	#laplacian = np.array([[1, 1, 1], [1, -8, 1], [1, 1, 1]], np.float32)
-	laplacian = np.array([[-1, -3, -4, -3, -1], [-3, 0, 6, 0, -3], [-4, 6, 20, 6, -4], [-3, 0, 6, 0, -3], [-1, -3, -4, -3, -1]], np.float32)
+def __dft_filter(src, func, *args):
+	#離散フーリエ変換
+	def dft(src):
+		#高速フーリエ変換
+		fimg = np.fft.fft2(src)
+		#第1象限と第3象限、第2象限と第4象限を入れ替え
+		dst =  np.fft.fftshift(fimg)
+		return dst
+	#逆離散フーリエ変換
+	def idft(src):
+		#第1象限と第3象限、第1象限と第4象限を入れ替え
+		fimg =  np.fft.fftshift(src)
+		#高速逆フーリエ変換
+		dst = np.fft.ifft2(fimg)
+		return dst
 
-def convolution_filter(src, kernel):
+	#離散フーリエ変換
 	dst = src.copy()
-	dst.data = cv2.filter2D(src.data, -1, kernel)
+	dft_img = dft(dst.data)
+
+	#フィルター処理
+	#引数に指定した関数を使用する
+	dft_img = func(dft_img, *args)
+
+	#逆離散フーリエ変換
+	idft_img = idft(dft_img)
+	#虚数部を除去
+	dst.data = np.abs(idft_img)
 	return dst
 
-def find_edge(src):
+def __make_filter(mask_src, size):
+	mask = mask_src.copy()
+	#フィルターのサイズ、位置設定
+	size = (int(size/100.0*mask.shape[1]/2), int(size/100.0*mask.shape[0]/2))
+	pos = (int(mask.shape[1]/2), int(mask.shape[0]/2))
+	#sizeで指定された大きさの楕円を描画
+	cv2.ellipse(mask, (pos, size, 0), 0 if mask[pos[1],pos[0]] else 255, -1)
+	'''#マスクの形状確認
+	cv2.imshow('', mask)
+	cv2.waitKey(0)
+	cv2.destroyAllWindows()
+	'''
+	return mask
+
+def highpass_filter(src, size):
+	def highpass(dft_img_src, *args):
+		dft_img = dft_img_src.copy()
+		#マスク作成
+		mask = __make_filter(np.ones_like(dft_img, dtype = 'uint8')*255, args[0])
+		#マスキング\
+		black = np.zeros_like(dft_img, dtype = 'complex128')
+		dft_img = np.where(mask == 255, dft_img, black)
+		return dft_img
+	dst = __dft_filter(src, highpass, size)
+	return dst
+
+def lowpass_filter(src, size):
+	def lowpass(dft_img_src, *args):
+		dft_img = dft_img_src.copy()
+		#マスク作成
+		mask = __make_filter(np.zeros_like(dft_img, dtype = 'uint8'), args[0])
+		#マスキング
+		black = np.zeros_like(dft_img, dtype = 'complex128')
+		dft_img = np.where(mask == 255, dft_img, black)
+		return dft_img
+	dst = __dft_filter(src, lowpass, size)
+	return dst
+
+def bandpass_filter(src, size_outer, size_inner):
+	def bandpass(dft_img_src, *args):
+		dft_img = dft_img_src.copy()
+		#マスク作成
+		mask = __make_filter(np.zeros_like(dft_img, dtype = 'uint8'), args[0])
+		mask = __make_filter(mask, args[1])
+		#マスキング
+		black = np.zeros_like(dft_img, dtype = 'complex128')
+		dft_img = np.where(mask == 255, dft_img, black)
+		return dft_img
+	dst = __dft_filter(src, bandpass, size_outer, size_inner)
+	return dst
+
+
+def find_edge(src, inner=True):
 	def normalize(img):
 		return (img - img.min()) / (img.max() - img.min())
-	dst = src.copy()
-	gray = normalize(dst.data)
-	#白い部分を収縮させる
-	dilated = cv2.erode(gray, np.ones((5, 5)), iterations=1)
+	gray = normalize(src.data)
+	gray = normalize(cv2.morphologyEx(gray, cv2.MORPH_OPEN, np.ones((5, 5))))
+	gray = cv2.GaussianBlur(gray, (9, 9), 0)
+	#'''
+	if inner:
+		#白い部分を収縮させる
+		edge = normalize(cv2.erode(gray, np.ones((7, 7)), iterations=1))
+	else:
+		#白い部分を膨張させる
+		edge = normalize(cv2.dilate(gray, np.ones((11, 11)), iterations=1))
+	#edge = cv2.morphologyEx(edge, cv2.MORPH_OPEN, np.ones((7, 7)))
+	edge = normalize(cv2.erode(edge, np.ones((5, 5)), iterations=1))
 	#差をとる
-	dst.data = normalize(cv2.absdiff(gray, dilated))
+	dst = src.copy()
+	dst_data = cv2.absdiff(gray, edge)
+	dst_data = cv2.GaussianBlur(dst_data, (5, 5), 0)
+	dst.data = normalize(dst_data)
+	'''
+	dst = gaussian_filter(src, 11)
+	img_opencv = (normalize(dst.data) * 255).astype(np.uint8)
+	img_opencv = cv2.adaptiveThreshold(img_opencv, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 7, 0)
+	dst.data = normalize(img_opencv)
+	#'''
 	return dst
 
-def enhance_edge(src, k = 10.0):
+def enhance_edge(src, k = 1.0, inner=True):
 	def normalize(img):
 		return (img - img.min()) / (img.max() - img.min())
+	edge = find_edge(src)
+	edge = heightCorrection(edge)
+	edge = edge.data
 	dst = src.copy()
-	edge = normalize(convolution_filter(find_edge(src), Kernels.gaussian).data)
-	dst.data -= (edge)*(src.data.max() - src.data.min()) * k/50.0
+	if inner:
+		dst.data += (edge)*(src.data.max() - src.data.min()) * k/5.0
+	else:
+		dst.data -= (edge)*(src.data.max() - src.data.min()) * k/5.0
+	dst = heightCorrection(dst)
 	return dst
 
 @numba.jit('float64[:,:](float64[:, :], int32)', nopython=True)
@@ -361,17 +454,35 @@ def __median_filter(src_data, ksize):
 	return dst_data
 
 @numba.jit
-def median_filter(src, ksize = 5):
+def median_filter(src, ksize = 3):
 	#近傍にある画素値の中央値を出力画像の画素値に設定
 	dst = src.copy()
 	dst.data = __median_filter(src.data, ksize)
 	return dst
 
-def gaussian_filter(src):
-	return convolution_filter(src, Kernels.gaussian)
+def convolution_filter(src, kernel):
+	dst = src.copy()
+	dst.data = cv2.filter2D(src.data, -1, kernel)
+	return dst
 
-def average_filter(src):
-	return convolution_filter(src, Kernels.average)
+def average_filter(src, ksize = 3):
+	average = cv2.getStructuringElement(cv2.MORPH_RECT, (ksize,ksize))/ksize**2
+	return convolution_filter(src, average)
+
+def gaussian_filter(src, ksize = 5, sigmaX = 0):
+	gaussian = cv2.getGaussianKernel(ksize, sigmaX)
+	gaussian = np.array([[x*y for x in gaussian] for y in gaussian])
+	return convolution_filter(src, gaussian)
 
 def laplacian_filter(src):
-	return convolution_filter(src, Kernels.laplacian)
+	laplacian = np.array([
+						 [-1, -3, -4, -3, -1],
+						 [-3,  0,  6,  0, -3],
+						 [-4,  6, 20,  6, -4],
+						 [-3,  0,  6,  0, -3],
+						 [-1, -3, -4, -3, -1]], np.float32)
+	return convolution_filter(src, laplacian)
+
+def sharpen_filter(src):
+	sharp = lambda k = 1: np.matrix('0,{0},0;{0},{1},{0};0,{0},0'.format(-k,1+4*k))
+	return convolution_filter(src, sharp)
