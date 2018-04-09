@@ -122,6 +122,15 @@ class niwaImg(niwaImgInfo):
 
 class ASD_handler():
 	def __init__(self, path):
+		extension = path.split('/')[-1].split('.')[-1]
+		print(extension)
+		try:
+			if extension != 'asd':
+				raise IOError
+		except IOError:
+			print('File Type Error')
+			print('%s is not a ASD file. Please select a ASD file.' % path)
+			exit(-1)
 		try:
 			self.__file = open(path, 'rb')
 		except IOError:
@@ -133,7 +142,7 @@ class ASD_handler():
 		self.__FrameNum = self.__header['FrameNum']
 
 	def __del__(self):
-		self.__file.close()
+		self.release()
 
 	def __img_generator(self, start, stop, step):
 		for idx in range(start, stop, step):
@@ -165,7 +174,8 @@ class ASD_handler():
 				raise IndexError
 
 	def release(self):
-		self.__file.close()
+		if hasattr(self, '_ASD_handler__file'):
+			self.__file.close()
 
 	def __read_header(self):
 		self.__file.seek(0)
