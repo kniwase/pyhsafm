@@ -81,7 +81,7 @@ class niwaImg(niwaImgInfo):
 	def __del_data(self):
 		del self.__data
 	data = property(__get_data, __set_data, __del_data)
-'''
+	'''
 	def __get_ori_data(self):
 		return self.__ori_data
 	def __set_ori_data(self, new_data):
@@ -89,7 +89,7 @@ class niwaImg(niwaImgInfo):
 	def __del_ori_data(self):
 		del self.__ori_data
 	ori_data = property(__get_ori_data, __set_ori_data, __del_ori_data)
-'''
+	'''
 
 	def copy(self):
 		return copy.deepcopy(self)
@@ -122,7 +122,10 @@ class niwaImg(niwaImgInfo):
 
 class ASD_handler():
 	def __init__(self, path):
-		self.__file = open(path, 'rb')
+		try:
+			self.__file = open(path, 'rb')
+		except IOError:
+			print('%s cannot be opened.' % path)
 		self.__header = self.__read_header()
 		self.header = self.__header
 		self.__cache = []
