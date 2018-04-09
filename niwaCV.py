@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import cv2, struct, copy, math, csv, numpy as np, pandas as pd, numba, warnings
 from scipy import signal
-from sklearn import linear_model
+from sklearn.linear_model import LinearRegression
 
 #Class
 class niwaImgInfo:
@@ -297,17 +297,19 @@ def heightScaling(src, highest):
 	dst.data = np.where(dst.data <= highest, dst.data, white)
 	return dst
 
-def tiltCorrection(src, th_range = 1.0):
+def tiltCorrection(src, th_range = 0.25):
 	dst = heightCorrection(src)
 	explanatory_var = np.where(dst.data <= th_range)
 	explanatory_var = list(zip(*explanatory_var))
-	data = dst.data
-	data = np.array([data[x,y] for x, y in explanatory_var])
+	data = src.data
+	data = np.array([data[y,x] for y, x in explanatory_var])
 	warnings.filterwarnings(action="ignore", module="scipy", message="^internal gelsd")
-	clf = linear_model.LinearRegression()
+	clf = LinearRegression()
 	clf.fit(explanatory_var, data)
-	var = [[x, y] for i in range(src.shape[0]) for x, y in enumerate([i for j in range(src.shape[1])])]
-	data = np.array([value - np.dot(var, clf.coef_) for var, value in zip(var, src.data.flatten())])
+	src_data = src.data
+	var = list(zip(*np.where(src_data)))
+	coef = clf.coef_
+	data = np.array([value - np.dot(var, coef) for var, value in zip(var, src_data.flatten())])
 	dst.data = data.reshape(dst.shape)
 	return dst
 
