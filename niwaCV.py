@@ -123,7 +123,6 @@ class niwaImg(niwaImgInfo):
 class ASD_handler():
 	def __init__(self, path):
 		extension = path.split('/')[-1].split('.')[-1]
-		print(extension)
 		try:
 			if extension != 'asd':
 				raise IOError
