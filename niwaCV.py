@@ -58,8 +58,8 @@ class niwaImg(niwaImgInfo):
 		self.__idx = idx
 		self.frame_header = frame_header
 		self.__data = data.copy()
-		self.__ori_data = data.copy()
-		super(niwaImg, self).__init__(self.__ori_data, XYlength)
+		#self.__ori_data = data.copy()
+		super(niwaImg, self).__init__(self.__data, XYlength)
 
 	#accessors
 	def __get_idx(self):
@@ -81,7 +81,7 @@ class niwaImg(niwaImgInfo):
 	def __del_data(self):
 		del self.__data
 	data = property(__get_data, __set_data, __del_data)
-
+'''
 	def __get_ori_data(self):
 		return self.__ori_data
 	def __set_ori_data(self, new_data):
@@ -89,6 +89,7 @@ class niwaImg(niwaImgInfo):
 	def __del_ori_data(self):
 		del self.__ori_data
 	ori_data = property(__get_ori_data, __set_ori_data, __del_ori_data)
+'''
 
 	def copy(self):
 		return copy.deepcopy(self)
