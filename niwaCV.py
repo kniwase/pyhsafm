@@ -120,7 +120,7 @@ class niwaImg(niwaImgInfo):
 		return data
 
 
-class ASD_handler():
+class ASD_reader():
 	def __init__(self, path):
 		extension = path.split('/')[-1].split('.')[-1]
 		try:
@@ -136,12 +136,17 @@ class ASD_handler():
 			print('%s cannot be opened.' % path)
 		self.__header = self.__read_header()
 		self.header = self.__header
-		self.__cache = []
-		self.__cache_list = []
 		self.__FrameNum = self.__header['FrameNum']
 
+	def __enter__(self):
+		return self
+
 	def __del__(self):
-		self.release()
+		if hasattr(self, '_ASD_handler__file'):
+			self.__file.close()
+
+	def __exit__(self, type, value, traceback):
+		del self
 
 	def __img_generator(self, start, stop, step):
 		for idx in range(start, stop, step):
@@ -171,10 +176,6 @@ class ASD_handler():
 				return self.__read_frame(idx if idx >= 0 else self.__FrameNum + idx)
 			else:
 				raise IndexError
-
-	def release(self):
-		if hasattr(self, '_ASD_handler__file'):
-			self.__file.close()
 
 	def __read_header(self):
 		self.__file.seek(0)
@@ -213,14 +214,6 @@ class ASD_handler():
 		img = niwaImg(data, (YPixel, XPixel), idx, frame_header)
 		self.__file.seek(0)
 		return img
-
-class ASD_reader():
-	def __init__(self, path):
-		self.handler = ASD_handler(path)
-	def __enter__(self):
-		return self.handler
-	def __exit__(self, type, value, traceback):
-		self.handler.release()
 
 class movieWriter:
 	def __init__(self, path, frame_time, imgShape):
