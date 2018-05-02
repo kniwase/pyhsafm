@@ -122,7 +122,7 @@ class niwaImg(niwaImgInfo):
 
 class ASD_handler():
 	def __init__(self, path):
-		extension = os.path.splitext(f)[1]
+		extension = os.path.splitext(path)[1]
 		try:
 			if extension != '.asd':
 				raise IOError
