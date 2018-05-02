@@ -122,9 +122,9 @@ class niwaImg(niwaImgInfo):
 
 class ASD_reader():
 	def __init__(self, path):
-		extension = path.split('/')[-1].split('.')[-1]
+		extension = os.path.splitext(f)[1]
 		try:
-			if extension != 'asd':
+			if extension != '.asd':
 				raise IOError
 		except IOError:
 			print('File Type Error')
