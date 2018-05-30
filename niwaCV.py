@@ -82,6 +82,22 @@ class niwaImg(niwaImgInfo):
 		del self.__data
 	data = property(__get_data, __set_data, __del_data)
 
+	def getPartialImg(self, x, y):
+		cut_data = self.data[y[0]:y[1], x[0]:x[1]]
+		XYlength = [int(cut_data.shape[0]*self.lenppixel), int(cut_data.shape[0]*self.lenppixel)]
+		return niwaImg(cut_data, XYlength)
+
+	def __getitem__(self, slice):
+		if len(slice) != 2: raise IndexError
+		y_slice, x_slice = slice
+		y0, y1, step = y_slice.indices(self.shape[0])
+		if step != 1: raise IndexError
+		x0, x1, step = x_slice.indices(self.shape[1])
+		if step != 1: raise IndexError
+		cut_data = self.data[y0:y1, x0:x1]
+		XYlength = [int(cut_data.shape[0]*self.lenppixel), int(cut_data.shape[0]*self.lenppixel)]
+		return niwaImg(cut_data, XYlength)
+
 	def copy(self):
 		return copy.deepcopy(self)
 
@@ -102,10 +118,10 @@ class niwaImg(niwaImgInfo):
 		img_color[:,:,2] = np.ones(self.shape, np.uint8)*255
 		return cv2.cvtColor(img_color, cv2.COLOR_HLS2BGR)
 
-	def getHistogram(self, bins=256, order=30):
-		hist, hist_bins = np.histogram(self.__data, bins=bins)
-		peak = signal.argrelmax(hist[0], order=order)
-		return hist, hist_bins[:-1], peak[0]
+	def getHistogram(self, bins=256, order=10):
+		hist, hist_bins = np.histogram(self.__data.flatten(), bins=bins)
+		peaks = signal.argrelmax(hist, order=order)
+		return [hist, hist_bins[:-1], peaks]
 
 
 class ASD_reader():
@@ -214,7 +230,7 @@ class movieWriter:
 		self.movieWriter.release()
 
 #functions
-def readImg(path):
+def imread(path):
 	csv_data = np.genfromtxt(path, delimiter=",", dtype='float')
 	XYlength = np.array([csv_data[1][1], csv_data[1][3]], dtype=int)
 	data = [row[1:-1] for row in csv_data[4:]]
@@ -224,21 +240,21 @@ def readImg(path):
 	data = cv2.resize(data, new_size)
 	return niwaImg(data, XYlength)
 
-def readInfo(path):
+def inforead(path):
 	src = readImg(path)
 	return niwaImgInfo(src.data, src.XYlength)
 
-def writeImg(path, img):
+def imrite(path, img):
 	cv2.imwrite(path, img.getOpenCVimage())
 
-def writeImgGray(path, img):
+def imrite_gray(path, img):
 	cv2.imwrite(path, img.getOpenCVimageGray())
 
-def showImg(img, text =''):
+def imshow(img, text =''):
 	cv2.imshow(text, img.getOpenCVimage())
 	cv2.waitKey(0)
 
-def showImgGray(img, text = ''):
+def imshow_gray(img, text =''):
 	cv2.imshow(text, img.getOpenCVimageGray())
 	cv2.waitKey(0)
 
