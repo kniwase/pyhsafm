@@ -118,8 +118,11 @@ class niwaImg(niwaImgInfo):
 		img_color[:,:,2] = np.ones(self.shape, np.uint8)*255
 		return cv2.cvtColor(img_color, cv2.COLOR_HLS2BGR)
 
-	def getHistogram(self, bins=256, order=10):
-		hist, hist_bins = np.histogram(self.__data.flatten(), bins=bins)
+	def getHistogram(self, bins=256, order=30, range=None):
+		if range is None:
+			hist, hist_bins = np.histogram(self.__data.flatten(), bins=bins)
+		else:
+			hist, hist_bins = np.histogram(self.__data.flatten(), bins=bins, range=range)
 		peaks = signal.argrelmax(hist, order=order)
 		return [hist, hist_bins[:-1], peaks]
 
