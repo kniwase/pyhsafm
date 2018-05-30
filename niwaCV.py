@@ -81,15 +81,6 @@ class niwaImg(niwaImgInfo):
 	def __del_data(self):
 		del self.__data
 	data = property(__get_data, __set_data, __del_data)
-	'''
-	def __get_ori_data(self):
-		return self.__ori_data
-	def __set_ori_data(self, new_data):
-		raise NameError('Original data is read only')
-	def __del_ori_data(self):
-		del self.__ori_data
-	ori_data = property(__get_ori_data, __set_ori_data, __del_ori_data)
-	'''
 
 	def copy(self):
 		return copy.deepcopy(self)
@@ -131,6 +122,7 @@ class ASD_reader():
 			self.__file = open(path, 'rb')
 		except IOError:
 			print('%s cannot be opened.' % path)
+			exit(-1)
 		self.__header = self.__read_header()
 		self.header = self.__header
 		self.__FrameNum = self.__header['FrameNum']
@@ -179,8 +171,6 @@ class ASD_reader():
 		header_bin = self.__file.read(165)
 		header_format = '=iiiiiiiiiiiiiiiibiiiiiiiiifffiiiiiiiffffff'
 		header_keys = ['FileType', 'FileHeaderSizeForSave', 'FrameHeaderSize', 'TextEncoding', 'OpeNameSize', 'CommentSizeForSave', 'DataType1ch', 'DataType2ch', 'FrameNum', 'ImageNum', 'ScanDirection', 'ScanTryNum', 'XPixel', 'YPixel', 'XScanSize', 'YScanSize', 'AveFlag', 'AverageNum', 'Year', 'Month', 'Day', 'Hour', 'Minute', 'Second', 'XRound', 'YRound', 'FrameTime', 'Sensitivity', 'PhaseSens', 'Offset1', 'Offset2', 'Offset3', 'Offset4', 'MachineNo', 'ADRange', 'ADResolution', 'MaxScanSizeX', 'MaxScanSizeY', 'PiezoConstX', 'PiezoConstY', 'PiezoConstZ', 'DriverGainZ']
-		#header_format = '=xxxxiixxxxiixxxxxxxxiiiiiiiixxxxxiiiiiixxxxxxxxfxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxffff'
-		#header_keys = ['FileHeaderSizeForSave', 'FrameHeaderSize', 'OpeNameSize', 'CommentSizeForSave', 'FrameNum', 'ImageNum', 'ScanDirection', 'ScanTryNum', 'XPixel', 'YPixel', 'XScanSize', 'YScanSize', 'Year', 'Month', 'Day', 'Hour', 'Minute', 'Second', 'FrameTime', 'PiezoConstX', 'PiezoConstY', 'PiezoConstZ', 'DriverGainZ']
 		header = {key:d for key, d in zip(header_keys, struct.unpack_from(header_format, header_bin, 0))}
 
 		OpeName_bin = self.__file.read(header['OpeNameSize'])
@@ -214,7 +204,7 @@ class ASD_reader():
 
 class movieWriter:
 	def __init__(self, path, frame_time, imgShape):
-		self.fourcc = cv2.VideoWriter_fourcc(*'avc1')
+		self.fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 		self.fps = 1.0 / frame_time
 		self.movieWriter = cv2.VideoWriter(path, self.fourcc, self.fps, (imgShape[1], imgShape[0]))
 	def __enter__(self):
@@ -370,7 +360,7 @@ def highpass_filter(src, size):
 		dft_img = dft_img_src.copy()
 		#マスク作成
 		mask = __make_filter(np.ones_like(dft_img, dtype = 'uint8')*255, args[0])
-		#マスキング\
+		#マスキング
 		black = np.zeros_like(dft_img, dtype = 'complex128')
 		dft_img = np.where(mask == 255, dft_img, black)
 		return dft_img
