@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import cv2, struct, copy, math, csv, numpy as np, pandas as pd, numba, warnings, os
+import cv2, struct, copy, csv, numpy as np, numba, warnings, os
 from scipy import signal
 from sklearn.linear_model import LinearRegression
 
@@ -111,13 +111,10 @@ class niwaImg(niwaImgInfo):
 		img_color[:,:,2] = np.ones(self.shape, np.uint8)*255
 		return cv2.cvtColor(img_color, cv2.COLOR_HLS2BGR)
 
-	def getHistogram(self, b = 256, o = 30):
-		hist = np.histogram(self.__data, bins=b)
-		peak = signal.argrelmax(hist[0], order=o)
-		data = pd.DataFrame({'hist': pd.Series(hist[0]),
-							 'bin_edges': pd.Series(hist[1][0:-1]),
-							 'peak': pd.Series(peak[0])})
-		return data
+	def getHistogram(self, bins=256, order=30):
+		hist, hist_bins = np.histogram(self.__data, bins=bins)
+		peak = signal.argrelmax(hist[0], order=order)
+		return hist, hist_bins[:-1], peak[0]
 
 
 class ASD_reader():
