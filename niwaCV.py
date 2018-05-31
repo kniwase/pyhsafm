@@ -118,14 +118,6 @@ class niwaImg(niwaImgInfo):
 		img_color[:,:,2] = np.ones(self.shape, np.uint8)*255
 		return cv2.cvtColor(img_color, cv2.COLOR_HLS2BGR)
 
-	def getHistogram(self, bins=256, order=30, range=None):
-		if range is None:
-			hist, hist_bins = np.histogram(self.__data.flatten(), bins=bins)
-		else:
-			hist, hist_bins = np.histogram(self.__data.flatten(), bins=bins, range=range)
-		peaks = signal.argrelmax(hist, order=order)
-		return [hist, hist_bins[:-1], peaks]
-
 
 class ASD_reader():
 	def __init__(self, path):
@@ -261,6 +253,36 @@ def imshow_gray(img, text =''):
 	cv2.imshow(text, img.getOpenCVimageGray())
 	cv2.waitKey(0)
 
+#戻り値はヒストグラム、X軸、検出されたピーク
+def histogram(img, range=None, step=0.1, order=None, smoothed=False, smoothing_order=3):
+	#stepに応じて最大値最小値を丸めるラムダ式
+	round_min = lambda x, step: round(x-x%step, 3)
+	round_max = lambda x, step: round(x-x%step+step, 3)
+	#データの1次元化
+	data = img.data.flatten()
+	#rangeをstepに合うように調整する、もしrangeの指定がなければ最大値最小値から自動で決定
+	if range is None:
+		range = [round_min(data.min(), step), round_max(data.max(), step)]
+	elif len(range) == 2:
+		range = [round_min(range[0], step), round_max(range[1], step)]
+	else:
+		raise ValueError
+	#binsはstepに応じて自動で生成
+	bins = int((range[1]-range[0])/step)
+	#ヒストグラム作成
+	hist, hist_bins = np.histogram(data, bins=bins, range=range)
+	#smoothedが指定されている場合、グラフの平滑化
+	if smoothed:
+		kernel = cv2.getGaussianKernel(smoothing_order, 0)[:,0]
+		hist = np.convolve(hist, kernel, mode='same')
+	#ピーク検出の幅のデフォルト設定はstepの逆数（つまり1nm）
+	if order is None:
+		order = int(round(1 / step))
+	#ピーク検出
+	peaks = signal.argrelmax(hist, order=order)[0]
+
+	return [hist, hist_bins[:-1], peaks]
+
 #戻り値はniwaCV形式の画像
 def binarize(src, lowest, highest = True):
 	def __binarize(src, lowest):
@@ -279,21 +301,14 @@ def binarize(src, lowest, highest = True):
 		dst.data = cv2.bitwise_and(mask1, mask2)
 	return dst
 
-def heightCorrection(src, makeItZero = False, peak_num = 1, b = 512, o = 10):
+def heightCorrection(src, makeItZero=False, peak_num=1, step=0.05):
 	dst = src.copy()
-	hist = np.histogram(dst.data, bins=b)
-	peak_idx = signal.argrelmax(hist[0], order=o)[0]
-	peak = hist[1][peak_idx[peak_num - 1]]
+	hist, bins, peak_idx = histogram(dst, step=step)
+	peak = bins[peak_idx[peak_num - 1]]
 	dst.data = dst.data - peak
 	if makeItZero:
 		black = np.zeros_like(dst.data, dtype='uint8')
 		dst.data = np.where(dst.data >= 0.0, dst.data, black)
-	return dst
-
-def heightScaling(src, highest):
-	dst = src.copy()
-	white = np.zeros(dst.shape, dtype='float') + highest
-	dst.data = np.where(dst.data <= highest, dst.data, white)
 	return dst
 
 def tiltCorrection(src, th_range = 0.25):
@@ -310,6 +325,12 @@ def tiltCorrection(src, th_range = 0.25):
 	coef = clf.coef_
 	data = np.array([value - np.dot(var, coef) for var, value in zip(var, src_data.flatten())])
 	dst.data = data.reshape(dst.shape)
+	return dst
+
+def heightScaling(src, highest):
+	dst = src.copy()
+	white = np.zeros(dst.shape, dtype='float') + highest
+	dst.data = np.where(dst.data <= highest, dst.data, white)
 	return dst
 
 def writeTime(src, time, frame_num = ""):
