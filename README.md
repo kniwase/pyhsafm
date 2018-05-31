@@ -4,10 +4,46 @@
 OpenCV用の画像を出力することができ、必要に応じてOpenCVとの連携が可能です。
 ***
 
-## クラス
-- AfmImg
-- ASD_reader
+## インストール
+インストールにはpipを使用します。
 
+## 使い方
+### 目次
+#### クラス
+- [AfmImg](#AfmImg)
+- [ASD_reader](#ASD_reader)
+
+#### 関数
+- [imwrite](#imwrite)
+- [imwrite_gray](#imwrite_gray)
+- [imwrite](#imwrite)
+- [imwrite_gray](#imwrite_gray)
+- [imshow](#imshow)
+- [imshow_gray](#imshow_gray)
+- [histogram](#histogram)
+- [threshold_otsu](#threshold_otsu)
+- [binarize](#binarize)
+- [heightCorrection](#heightCorrection)
+- [tiltCorrection](#tiltCorrection)
+- [heightScaling](#heightScaling)
+- [highpass_filter](#highpass_filter)
+- [lowpass_filter](#lowpass_filter)
+- [bandpass_filter](#bandpass_filter)
+- [find_edge](#find_edge)
+- [enhance_edge](#enhance_edge)
+- [median_filter](#median_filter)
+- [convolution_filter](#convolution_filter)
+- [average_filter](#average_filter)
+- [gaussian_filter](#gaussian_filter)
+- [laplacian_filter](#laplacian_filter)
+- [sharpen_filter](#sharpen_filter)
+
+### OpenCVの機能拡張
+- [movieWriter](#movieWriter)
+- [writeTime](#writeTime)
+
+***
+## クラス
 ### AfmImg
 
 ` AfmImg(data, XYlength, idx = None, frame_header = None) `
@@ -48,34 +84,9 @@ HS-AFMのASDファイルを読み込むためのクラスです。
 ファイル読み書きに使用するopenと同様にwith文に対応しています。
 読み込まれた一連の画像は、インデックスを使用してアクセスすることが可能です。*アクセスするごとに新たなAfmImgインスタンスが生成されることに注意してください。*
 
-
+***
 
 ## 関数
-- [imwrite](#imwrite)
-- [imwrite_gray](#imwrite_gray)
-- [imwrite](#imwrite)
-- [imwrite_gray](#imwrite_gray)
-- [imshow](#imshow)
-- [imshow_gray](#imshow_gray)
-- [histogram](#histogram)
-- [threshold_otsu](#threshold_otsu)
-- [binarize](#binarize)
-- [heightCorrection](#heightCorrection)
-- [tiltCorrection](#tiltCorrection)
-- [heightScaling](#heightScaling)
-- [highpass_filter](#highpass_filter)
-- [lowpass_filter](#lowpass_filter)
-- [bandpass_filter](#bandpass_filter)
-- [find_edge](#find_edge)
-- [enhance_edge](#enhance_edge)
-- [median_filter](#median_filter)
-- [convolution_filter](#convolution_filter)
-- [average_filter](#average_filter)
-- [gaussian_filter](#gaussian_filter)
-- [laplacian_filter](#laplacian_filter)
-- [sharpen_filter](#sharpen_filter)
-
-
 ### imwrite
 `imwrite(path, img)`
 
@@ -403,9 +414,6 @@ highestに指定した以上の高さをすべてhighestに置換する関数で
 ***
 
 ## OpenCVの機能拡張
-- movieWriter
-- writeTime
-
 ### movieWriter  
 `movieWriter(path, frame_time, imgShape)`
 
