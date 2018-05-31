@@ -283,6 +283,11 @@ def histogram(img, range=None, step=0.1, order=None, smoothed=False, smoothing_o
 
 	return [hist, hist_bins[:-1], peaks]
 
+def threshold_otsu(img):
+	threshold_8bit = cv2.threshold(img.getOpenCVimageGray(), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[0]
+	threshold = (img.zdata[1]-img.zdata[0])*(threshold_8bit/255.0)+img.zdata[0]
+	return threshold
+
 #戻り値はniwaCV形式の画像
 def binarize(src, lowest, highest = True):
 	def __binarize(src, lowest):
@@ -331,24 +336,6 @@ def heightScaling(src, highest):
 	dst = src.copy()
 	white = np.zeros(dst.shape, dtype='float') + highest
 	dst.data = np.where(dst.data <= highest, dst.data, white)
-	return dst
-
-def writeTime(src, time, frame_num = ""):
-	dst = src.copy()
-	round=lambda x:(x*10.0*2+1)//2/10.0
-	txt = str(round(time)) + "s"
-	font = cv2.FONT_HERSHEY_DUPLEX
-	font_size = 1.2
-	position = (15, 45)
-	dst = cv2.putText(dst, txt, position, font, font_size, (0, 0, 0), 6, cv2.LINE_AA)
-	dst = cv2.putText(dst, txt, position, font, font_size, (255, 255, 255), 2, cv2.LINE_AA)
-	if frame_num != "":
-		txt = frame_num
-		font = cv2.FONT_HERSHEY_DUPLEX
-		position = (dst.shape[1] - 35, dst.shape[0]-4)
-		font_size = 0.4
-		dst = cv2.putText(dst, txt, position, font, font_size, (0, 0, 0), 2, cv2.LINE_AA)
-		dst = cv2.putText(dst, txt, position, font, font_size, (255, 255, 255), 1, cv2.LINE_AA)
 	return dst
 
 def __dft_filter(src, func, *args):
@@ -521,3 +508,22 @@ def laplacian_filter(src):
 def sharpen_filter(src):
 	sharp = lambda k = 1: np.matrix('0,{0},0;{0},{1},{0};0,{0},0'.format(-k,1+4*k))
 	return convolution_filter(src, sharp)
+
+#OpenCVの画像用
+def writeTime(src, time, frame_num = ""):
+	dst = src.copy()
+	round=lambda x:(x*10.0*2+1)//2/10.0
+	txt = str(round(time)) + "s"
+	font = cv2.FONT_HERSHEY_DUPLEX
+	font_size = 1.2
+	position = (15, 45)
+	dst = cv2.putText(dst, txt, position, font, font_size, (0, 0, 0), 6, cv2.LINE_AA)
+	dst = cv2.putText(dst, txt, position, font, font_size, (255, 255, 255), 2, cv2.LINE_AA)
+	if frame_num != "":
+		txt = frame_num
+		font = cv2.FONT_HERSHEY_DUPLEX
+		position = (dst.shape[1] - 35, dst.shape[0]-4)
+		font_size = 0.4
+		dst = cv2.putText(dst, txt, position, font, font_size, (0, 0, 0), 2, cv2.LINE_AA)
+		dst = cv2.putText(dst, txt, position, font, font_size, (255, 255, 255), 1, cv2.LINE_AA)
+	return dst
