@@ -4,13 +4,17 @@ from scipy import signal
 from sklearn.linear_model import LinearRegression
 
 #Class
-class niwaImgInfo:
-	def __init__(self, data, XYlength):
+#HS-AFM像を扱うためのクラス
+class afmImg():
+	def __init__(self, data, XYlength, idx = None, frame_header = None):
 		self._XYlength = XYlength
 		self._Zdata = np.array([data.min(), data.max()])
 		self._shape = np.array(data.shape)
 		self._lenppixel = self._XYlength[0] / self._shape[0]
 		self._ns2ppixel = (self._XYlength[0]*self._XYlength[1]) / (self._shape[0]*self._shape[1])
+		self.__idx = idx
+		self.frame_header = frame_header
+		self.__data = data.copy()
 
 	#accessors
 	def __get_zdata(self):
@@ -53,15 +57,6 @@ class niwaImgInfo:
 		del self._ns2ppixel
 	ns2ppixel = property(__get_ns2ppixel, __set_ns2ppixel, __del_ns2ppixel)
 
-class niwaImg(niwaImgInfo):
-	def __init__(self, data, XYlength, idx = None, frame_header = None):
-		self.__idx = idx
-		self.frame_header = frame_header
-		self.__data = data.copy()
-		#self.__ori_data = data.copy()
-		super(niwaImg, self).__init__(self.__data, XYlength)
-
-	#accessors
 	def __get_idx(self):
 		return self.__idx
 	def __set_idx(self, value):
@@ -69,10 +64,10 @@ class niwaImg(niwaImgInfo):
 	def __del_idx(self):
 		del self.__idx
 	index = property(__get_idx, __set_idx, __del_idx)
+
 	def __get_data(self):
 		return self.__data.copy()
 	def __set_data(self, new_data):
-		#if all([s1 == s2 for s1, s2 in zip(self.shape, new_data.shape)]):
 		if list(self.shape) == list(new_data.shape):
 			self.__data = new_data.copy()
 		else:
@@ -82,12 +77,13 @@ class niwaImg(niwaImgInfo):
 		del self.__data
 	data = property(__get_data, __set_data, __del_data)
 
-	def getPartialImg(self, x, y):
-		cut_data = self.data[y[0]:y[1], x[0]:x[1]]
-		XYlength = [int(cut_data.shape[0]*self.lenppixel), int(cut_data.shape[0]*self.lenppixel)]
-		return niwaImg(cut_data, XYlength)
-
+	#OpenCVと同様のインデックスによる画像の一部切り抜きに対応
 	def __getitem__(self, slice):
+		def getPartialImg(self, x, y):
+			cut_data = self.data[y[0]:y[1], x[0]:x[1]]
+			XYlength = [int(cut_data.shape[0]*self.lenppixel), int(cut_data.shape[0]*self.lenppixel)]
+			return afmImg(cut_data, XYlength)
+
 		if len(slice) != 2: raise IndexError
 		y_slice, x_slice = slice
 		y0, y1, step = y_slice.indices(self.shape[0])
@@ -96,14 +92,13 @@ class niwaImg(niwaImgInfo):
 		if step != 1: raise IndexError
 		cut_data = self.data[y0:y1, x0:x1]
 		XYlength = [int(cut_data.shape[0]*self.lenppixel), int(cut_data.shape[0]*self.lenppixel)]
-		return niwaImg(cut_data, XYlength)
+		return afmImg(cut_data, XYlength)
 
+	#自身の深いコピーを生成する
 	def copy(self):
 		return copy.deepcopy(self)
 
-	def getInfo(self):
-		return niwaImgInfo(self)
-
+	#OpenCVに対応したグレースケール画像を出力する
 	def getOpenCVimageGray(self):
 		if (self.zdata[1] - self.zdata[0]) <= 0:
 			print(self.zdata[1] - self.zdata[0])
@@ -111,6 +106,7 @@ class niwaImg(niwaImgInfo):
 		gray_img = np.uint8(gray_img * 255)
 		return gray_img
 
+	#OpenCVに対応したカラー画像を出力する
 	def getOpenCVimage(self):
 		img_color = np.zeros((*self.shape, 3), np.uint8)
 		img_color[:,:,0] = np.ones(self.shape, np.uint8)*19
@@ -119,6 +115,8 @@ class niwaImg(niwaImgInfo):
 		return cv2.cvtColor(img_color, cv2.COLOR_HLS2BGR)
 
 
+#HS-AFMのASDファイルを読み込むためのクラス
+#ファイル読み書きのopenと同様にwith文に対応
 class ASD_reader():
 	def __init__(self, path):
 		extension = os.path.splitext(path)[1]
@@ -209,10 +207,12 @@ class ASD_reader():
 		size_times = 3
 		new_size = (XPixel*size_times, YPixel*size_times)
 		data = cv2.resize(data, new_size)
-		img = niwaImg(data, (YPixel, XPixel), idx, frame_header)
+		img = afmImg(data, (YPixel, XPixel), idx, frame_header)
 		self.__file.seek(0)
 		return img
 
+#OpenCV画像を動画として書き出す機能を使いやすくしたラッピングクラス
+#with文に対応させた、その後の使い方はcv2.VideoWriterと同じ
 class movieWriter:
 	def __init__(self, path, frame_time, imgShape):
 		self.fourcc = cv2.VideoWriter_fourcc(*'mp4v')
@@ -225,6 +225,7 @@ class movieWriter:
 		self.movieWriter.release()
 
 #functions
+#CSVファイルとして出力した画像を読み込む、多分もういらない
 def imread(path):
 	csv_data = np.genfromtxt(path, delimiter=",", dtype='float')
 	XYlength = np.array([csv_data[1][1], csv_data[1][3]], dtype=int)
@@ -233,11 +234,11 @@ def imread(path):
 	size_times = 3
 	new_size = (data.shape[0]*size_times, data.shape[1]*size_times) #ピクセル数ベース
 	data = cv2.resize(data, new_size)
-	return niwaImg(data, XYlength)
+	return afmImg(data, XYlength)
 
 def inforead(path):
 	src = readImg(path)
-	return niwaImgInfo(src.data, src.XYlength)
+	return afmImgInfo(src.data, src.XYlength)
 
 def imrite(path, img):
 	cv2.imwrite(path, img.getOpenCVimage())
@@ -283,12 +284,13 @@ def histogram(img, range=None, step=0.1, order=None, smoothed=False, smoothing_o
 
 	return [hist, hist_bins[:-1], peaks]
 
+#大津の二値化による閾値取得用関数
 def threshold_otsu(img):
 	threshold_8bit = cv2.threshold(img.getOpenCVimageGray(), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[0]
 	threshold = (img.zdata[1]-img.zdata[0])*(threshold_8bit/255.0)+img.zdata[0]
 	return threshold
 
-#戻り値はniwaCV形式の画像
+#srcをlowestの高さで二値化する（高さ1.0nmまたは0.0nm）、highestが指定されるとそれ以上の部分も0.0nmになる
 def binarize(src, lowest, highest = True):
 	def __binarize(src, lowest):
 		dst = src.copy()
@@ -306,6 +308,10 @@ def binarize(src, lowest, highest = True):
 		dst.data = cv2.bitwise_and(mask1, mask2)
 	return dst
 
+#高さヒストグラムからマイカ表面を認識し、マイカ表面が0.0nmになるように高さを修正する
+#makeItZeroをTrueにすると0.0nm以下をすべて0.0nmで置換する
+#peak_numは低い方から数えて何個目のピークをマイカ表面とするかを指定する
+#stepはヒストグラム取得の際のパラメーター
 def heightCorrection(src, makeItZero=False, peak_num=1, step=0.05):
 	dst = src.copy()
 	hist, bins, peak_idx = histogram(dst, step=step)
@@ -316,6 +322,8 @@ def heightCorrection(src, makeItZero=False, peak_num=1, step=0.05):
 		dst.data = np.where(dst.data >= 0.0, dst.data, black)
 	return dst
 
+#マイカ表面を平面近似し、そのパラメーターに基づいて傾きを補正する
+#th_rangeで何nmまでをマイカ表面として扱うかを指定できる
 def tiltCorrection(src, th_range = 0.25):
 	dst = heightCorrection(src)
 	explanatory_var = np.where(dst.data <= th_range)
@@ -332,12 +340,14 @@ def tiltCorrection(src, th_range = 0.25):
 	dst.data = data.reshape(dst.shape)
 	return dst
 
+#highestに指定した以上の高さをすべてhighestに置換する
 def heightScaling(src, highest):
 	dst = src.copy()
 	white = np.zeros(dst.shape, dtype='float') + highest
 	dst.data = np.where(dst.data <= highest, dst.data, white)
 	return dst
 
+#離散フーリエ変換を行い、フィルターをかける関数
 def __dft_filter(src, func, *args):
 	#離散フーリエ変換
 	def dft(src):
@@ -368,6 +378,7 @@ def __dft_filter(src, func, *args):
 	dst.data = np.abs(idft_img)
 	return dst
 
+#フィルタージェネレーター
 def __make_filter(mask_src, size):
 	mask = mask_src.copy()
 	#フィルターのサイズ、位置設定
@@ -382,6 +393,7 @@ def __make_filter(mask_src, size):
 	'''
 	return mask
 
+#ハイパスフィルター、sizeでフィルターのサイズを調整できる
 def highpass_filter(src, size):
 	def highpass(dft_img_src, *args):
 		dft_img = dft_img_src.copy()
@@ -394,6 +406,7 @@ def highpass_filter(src, size):
 	dst = __dft_filter(src, highpass, size)
 	return dst
 
+#ローパスフィルター、sizeでフィルターのサイズを調整できる
 def lowpass_filter(src, size):
 	def lowpass(dft_img_src, *args):
 		dft_img = dft_img_src.copy()
@@ -406,6 +419,7 @@ def lowpass_filter(src, size):
 	dst = __dft_filter(src, lowpass, size)
 	return dst
 
+#バンドパスフィルター、size_outer, size_innerで外側内側のフィルターのサイズを調整する
 def bandpass_filter(src, size_outer, size_inner):
 	def bandpass(dft_img_src, *args):
 		dft_img = dft_img_src.copy()
@@ -419,7 +433,7 @@ def bandpass_filter(src, size_outer, size_inner):
 	dst = __dft_filter(src, bandpass, size_outer, size_inner)
 	return dst
 
-
+#エッジを探すフィルター、動作が怪しい
 def find_edge(src, inner=True):
 	def normalize(img):
 		return (img - img.min()) / (img.max() - img.min())
@@ -448,6 +462,7 @@ def find_edge(src, inner=True):
 	#'''
 	return dst
 
+#find_edgeで探したエッジを元画像に足し算してエッジを強調させる
 def enhance_edge(src, k = 1.0, inner=True):
 	def normalize(img):
 		return (img - img.min()) / (img.max() - img.min())
@@ -462,6 +477,7 @@ def enhance_edge(src, k = 1.0, inner=True):
 	dst = heightCorrection(dst)
 	return dst
 
+#メディアンフィルターの実装部分、numbaを使用してjitコンパイラに通すことで高速化
 @numba.jit('float64[:,:](float64[:, :], int32)', nopython=True)
 def __median_filter(src_data, ksize):
 	h, w = src_data.shape[0], src_data.shape[1]
@@ -474,7 +490,7 @@ def __median_filter(src_data, ksize):
 			tmp_data.sort()
 			dst_data[y-d][x-d] = tmp_data[med]
 	return dst_data
-
+#メディアンフィルターを実際に使うときの関数、numbaを使用してjitコンパイラに通すことで高速化
 @numba.jit
 def median_filter(src, ksize = 3):
 	#近傍にある画素値の中央値を出力画像の画素値に設定
@@ -482,20 +498,24 @@ def median_filter(src, ksize = 3):
 	dst.data = __median_filter(src.data, ksize)
 	return dst
 
+#畳み込み演算を行う関数、任意のカーネルを指定できる
 def convolution_filter(src, kernel):
 	dst = src.copy()
 	dst.data = cv2.filter2D(src.data, -1, kernel)
 	return dst
 
+#平均値フィルター
 def average_filter(src, ksize = 3):
 	average = cv2.getStructuringElement(cv2.MORPH_RECT, (ksize,ksize))/ksize**2
 	return convolution_filter(src, average)
 
+#ガウシアンフィルター
 def gaussian_filter(src, ksize = 5, sigmaX = 0):
 	gaussian = cv2.getGaussianKernel(ksize, sigmaX)
 	gaussian = np.array([[x*y for x in gaussian] for y in gaussian])
 	return convolution_filter(src, gaussian)
 
+#ラプラシアンフィルター
 def laplacian_filter(src):
 	laplacian = np.array([
 						 [-1, -3, -4, -3, -1],
@@ -505,11 +525,13 @@ def laplacian_filter(src):
 						 [-1, -3, -4, -3, -1]], np.float32)
 	return convolution_filter(src, laplacian)
 
+#鮮鋭化フィルター
 def sharpen_filter(src):
 	sharp = lambda k = 1: np.matrix('0,{0},0;{0},{1},{0};0,{0},0'.format(-k,1+4*k))
 	return convolution_filter(src, sharp)
 
 #OpenCVの画像用
+#画像に時間を書き込む関数
 def writeTime(src, time, frame_num = ""):
 	dst = src.copy()
 	round=lambda x:(x*10.0*2+1)//2/10.0
