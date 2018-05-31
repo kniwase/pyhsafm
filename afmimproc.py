@@ -1,11 +1,37 @@
 # -*- coding: utf-8 -*-
+"""
+このモジュールはHS-AFMで撮影された画像をPython上で処理するためのモジュールです。
+OpenCV用の画像を出力することができ、必要に応じてOpenCVとの連携が可能です。
+使い方はipythonにて 関数名? や クラス名? で参照するか、
+ https://github.com/kniwase/pyhsafm を参照してください。
+"""
+
 import cv2, struct, copy, csv, numpy as np, numba, warnings, os
 from scipy import signal
 from sklearn.linear_model import LinearRegression
 
 #Class
-#HS-AFM像を扱うためのクラス
-class afmImg():
+class AfmImg():
+	"""
+	AfmImg(data, XYlength, idx = None, frame_header = None)
+
+	HS-AFM像を扱うためのクラスです。
+	HS-AFM像が持つXY方向の距離などの情報を扱うことができます。
+
+	引数
+	----------
+	data : 高さ情報の2次元リスト
+	XYlength :　XY方向の長さ(nm)のリスト [x, y]
+	idx :　画像のインデックス
+	frame_header : 画像のメタ情報
+
+	戻り値
+	-------
+	self : AfmImgのインスタンス
+
+	OpenCVと同じ方法でのインデックスによる画像の切り抜き操作に対応しています。
+	元の画像の一部への参照ではなくコピーを返すことに注意してください。
+	"""
 	def __init__(self, data, XYlength, idx = None, frame_header = None):
 		self._XYlength = XYlength
 		self._Zdata = np.array([data.min(), data.max()])
@@ -77,12 +103,16 @@ class afmImg():
 		del self.__data
 	data = property(__get_data, __set_data, __del_data)
 
-	#OpenCVと同様のインデックスによる画像の一部切り抜きに対応
+	#methods
 	def __getitem__(self, slice):
+		"""
+		OpenCVと同じ方法でのインデックスによる画像の切り抜き操作に対応しています。
+		元の画像の一部への参照ではなくコピーを返すことに注意してください。
+		"""
 		def getPartialImg(self, x, y):
 			cut_data = self.data[y[0]:y[1], x[0]:x[1]]
 			XYlength = [int(cut_data.shape[0]*self.lenppixel), int(cut_data.shape[0]*self.lenppixel)]
-			return afmImg(cut_data, XYlength)
+			return AfmImg(cut_data, XYlength)
 
 		if len(slice) != 2: raise IndexError
 		y_slice, x_slice = slice
@@ -92,22 +122,34 @@ class afmImg():
 		if step != 1: raise IndexError
 		cut_data = self.data[y0:y1, x0:x1]
 		XYlength = [int(cut_data.shape[0]*self.lenppixel), int(cut_data.shape[0]*self.lenppixel)]
-		return afmImg(cut_data, XYlength)
+		return AfmImg(cut_data, XYlength)
 
-	#自身の深いコピーを生成する
 	def copy(self):
+		"""
+		self.copy()
+
+		自身の深いコピーを生成します。
+		"""
 		return copy.deepcopy(self)
 
-	#OpenCVに対応したグレースケール画像を出力する
 	def getOpenCVimageGray(self):
+		"""
+		self.getOpenCVimageGray()
+
+		OpenCV互換の8bitグレースケール画像を出力します。
+		"""
 		if (self.zdata[1] - self.zdata[0]) <= 0:
 			print(self.zdata[1] - self.zdata[0])
 		gray_img = (self.data - self.zdata[0]) / (self.zdata[1] - self.zdata[0])
 		gray_img = np.uint8(gray_img * 255)
 		return gray_img
 
-	#OpenCVに対応したカラー画像を出力する
 	def getOpenCVimage(self):
+		"""
+		self.getOpenCVimage()
+
+		OpenCV互換の8bitカラー画像を出力します。
+		"""
 		img_color = np.zeros((*self.shape, 3), np.uint8)
 		img_color[:,:,0] = np.ones(self.shape, np.uint8)*19
 		img_color[:,:,1] = self.getOpenCVimageGray()
@@ -116,8 +158,25 @@ class afmImg():
 
 
 #HS-AFMのASDファイルを読み込むためのクラス
-#ファイル読み書きのopenと同様にwith文に対応
+#
 class ASD_reader():
+	"""
+	ASD_reader(path)
+
+	HS-AFMのASDファイルを読み込むためのクラスです。
+
+	引数
+	----------
+	path : 読み込むASDファイルのパス
+
+	戻り値
+	-------
+	self : ASD_readerのインスタンス
+
+	ファイル読み書きに使用するopenと同様にwith文に対応しています。
+	読み込まれた一連の画像は、インデックスを使用してアクセスすることが可能です。
+	アクセスするごとに新たな AfmImgインスタンスを生成していることに注意してください。
+	"""
 	def __init__(self, path):
 		extension = os.path.splitext(path)[1]
 		try:
@@ -207,26 +266,28 @@ class ASD_reader():
 		size_times = 3
 		new_size = (XPixel*size_times, YPixel*size_times)
 		data = cv2.resize(data, new_size)
-		img = afmImg(data, (YPixel, XPixel), idx, frame_header)
+		img = AfmImg(data, (YPixel, XPixel), idx, frame_header)
 		self.__file.seek(0)
 		return img
-
-#OpenCV画像を動画として書き出す機能を使いやすくしたラッピングクラス
-#with文に対応させた、その後の使い方はcv2.VideoWriterと同じ
-class movieWriter:
-	def __init__(self, path, frame_time, imgShape):
-		self.fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-		self.fps = 1.0 / frame_time
-		self.movieWriter = cv2.VideoWriter(path, self.fourcc, self.fps, (imgShape[1], imgShape[0]))
-	def __enter__(self):
-		return self.movieWriter
-	def __exit__(self, type, value, traceback):
-		print("   Saving Movie   ")
-		self.movieWriter.release()
 
 #functions
 #CSVファイルとして出力した画像を読み込む、多分もういらない
 def imread(path):
+	"""
+	imread(path)
+
+	CSVファイルとして出力した画像を読み込む関数です。（非推奨）
+
+	引数
+	----------
+	path : 読み込むCSVファイルのパス
+
+	戻り値
+	-------
+	self : AfmImgのインスタンス
+
+	ASDファイルでの読み込みを推奨します。
+	"""
 	csv_data = np.genfromtxt(path, delimiter=",", dtype='float')
 	XYlength = np.array([csv_data[1][1], csv_data[1][3]], dtype=int)
 	data = [row[1:-1] for row in csv_data[4:]]
@@ -234,28 +295,111 @@ def imread(path):
 	size_times = 3
 	new_size = (data.shape[0]*size_times, data.shape[1]*size_times) #ピクセル数ベース
 	data = cv2.resize(data, new_size)
-	return afmImg(data, XYlength)
+	return AfmImg(data, XYlength)
 
-def inforead(path):
-	src = readImg(path)
-	return afmImgInfo(src.data, src.XYlength)
+def imwrite(path, img):
+	"""
+	imwrite(path, img)
 
-def imrite(path, img):
+	AfmImgをカラーの画像ファイルとして出力する関数です。
+	拡張子で形式を指定することができます。
+
+	引数
+	----------
+	path : 出力する画像ファイルのパス
+	img : 出力するAfmImg形式の画像
+
+	戻り値
+	-------
+	なし
+	"""
 	cv2.imwrite(path, img.getOpenCVimage())
 
-def imrite_gray(path, img):
+def imwrite_gray(path, img):
+	"""
+	imwrite_gray(path, img)
+
+	AfmImgをグレースケールの画像ファイルとして出力する関数です。
+	拡張子で形式を指定することができます。
+
+	引数
+	----------
+	path : 出力する画像ファイルのパス
+	img : 出力するAfmImg形式の画像
+
+	戻り値
+	-------
+	なし
+	"""
 	cv2.imwrite(path, img.getOpenCVimageGray())
 
 def imshow(img, text =''):
+	"""
+	imshow(img, text='')
+
+	AfmImgをカラーの画像ファイルとして表示する関数です。
+
+	引数
+	----------
+	img : 表示するAfmImg形式の画像
+	text : 表示するウィンドウのタイトル（オプション）
+
+	戻り値
+	-------
+	なし
+	"""
 	cv2.imshow(text, img.getOpenCVimage())
 	cv2.waitKey(0)
 
 def imshow_gray(img, text =''):
+	"""
+	imshow_gray(img, text='')
+
+	AfmImgをグレースケールの画像ファイルとして表示する関数です。
+
+	引数
+	----------
+	img : 表示するAfmImg形式の画像
+	text : 表示するウィンドウのタイトル（オプション）
+
+	戻り値
+	-------
+	なし
+	"""
 	cv2.imshow(text, img.getOpenCVimageGray())
 	cv2.waitKey(0)
 
 #戻り値はヒストグラム、X軸、検出されたピーク
 def histogram(img, range=None, step=0.1, order=None, smoothed=False, smoothing_order=3):
+	"""
+	histogram(img, range=None, step=0.1, order=None, smoothed=False, smoothing_order=3)
+
+	画像のヒストグラムとそのピークリストを生成する関数です。
+
+	引数
+	----------
+	img : AfmImg形式の画像
+	range : リスト（オプション）
+		ヒストグラム作成に使用する高さの範囲 [min, max]
+	step : 数値（オプション）
+		ヒストグラム作成時の高さの幅
+	order : 整数（オプション）
+		ピーク検出時に比較を行う幅の値
+	smoothed : bool型（オプション）
+		ヒストグラムを平滑化するかどうか
+	smoothing_order : 整数（オプション）
+		ヒストグラム平滑化の際に、平均を取る範囲
+
+
+	戻り値
+	-------
+	hist : リスト
+		ヒストグラムのY軸の値
+	hist_bins : リスト
+		ヒストグラムのラベル（X軸の値）
+	peaks : リスト
+		ヒストグラム上のピーク。hist_binsのインデックスとして出力されます。
+	"""
 	#stepに応じて最大値最小値を丸めるラムダ式
 	round_min = lambda x, step: round(x-x%step, 3)
 	round_max = lambda x, step: round(x-x%step+step, 3)
@@ -282,16 +426,49 @@ def histogram(img, range=None, step=0.1, order=None, smoothed=False, smoothing_o
 	#ピーク検出
 	peaks = signal.argrelmax(hist, order=order)[0]
 
-	return [hist, hist_bins[:-1], peaks]
+	return hist, hist_bins[:-1], peaks
 
 #大津の二値化による閾値取得用関数
 def threshold_otsu(img):
+	"""
+	threshold_otsu(img)
+
+	大津の二値化に用いるしきい値を高さとして出力します。
+
+	引数
+	----------
+	img : AfmImg形式の画像
+
+
+	戻り値
+	-------
+	threshold : 数値
+		大津の二値化に用いるしきい値
+	"""
 	threshold_8bit = cv2.threshold(img.getOpenCVimageGray(), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[0]
 	threshold = (img.zdata[1]-img.zdata[0])*(threshold_8bit/255.0)+img.zdata[0]
 	return threshold
 
 #srcをlowestの高さで二値化する（高さ1.0nmまたは0.0nm）、highestが指定されるとそれ以上の部分も0.0nmになる
-def binarize(src, lowest, highest = True):
+def binarize(src, lowest, highest=None):
+	"""
+	binarize(src, lowest, highest=None)
+
+	二値化した画像を出力します。
+
+	引数
+	----------
+	src : AfmImg形式の画像
+	lowest : 数値
+		二値化のしきい値
+	highest : 数値（オプション）
+		最大値の指定。highestが指定されるとそれ以上の高さの部分が0.0nmになります。
+
+	戻り値
+	-------
+	dst : AfmImg形式の画像
+		二値化（高さ1.0nmまたは0.0nm）された画像
+	"""
 	def __binarize(src, lowest):
 		dst = src.copy()
 		black = np.zeros(src.shape, dtype='float')
@@ -299,7 +476,7 @@ def binarize(src, lowest, highest = True):
 		dst.data = np.where(dst.data > lowest, white, black).astype("float")
 		return dst
 
-	if highest:
+	if highest is None:
 		dst = __binarize(src, lowest)
 	else:
 		mask1 = __binarize(src, lowest).data
@@ -308,11 +485,27 @@ def binarize(src, lowest, highest = True):
 		dst.data = cv2.bitwise_and(mask1, mask2)
 	return dst
 
-#高さヒストグラムからマイカ表面を認識し、マイカ表面が0.0nmになるように高さを修正する
-#makeItZeroをTrueにすると0.0nm以下をすべて0.0nmで置換する
-#peak_numは低い方から数えて何個目のピークをマイカ表面とするかを指定する
-#stepはヒストグラム取得の際のパラメーター
 def heightCorrection(src, makeItZero=False, peak_num=1, step=0.05):
+	"""
+	heightCorrection(src, makeItZero=False, peak_num=1, step=0.05)
+
+	高さヒストグラムからマイカ表面を認識し、マイカ表面が0.0nmになるように高さを修正する関数です。
+
+	引数
+	----------
+	src : AfmImg形式の画像
+	makeItZero : bool型（オプション）
+		0.0nm以下をすべて0.0nmで置換するかどうか
+	peak_num : 整数（オプション）
+		低い方から数えて何個目のピークをマイカ表面とするか
+	step : 数値（オプション）
+		ヒストグラム取得の際のパラメーター
+
+	戻り値
+	-------
+	dst : AfmImg形式の画像
+		高さが修正された画像
+	"""
 	dst = src.copy()
 	hist, bins, peak_idx = histogram(dst, step=step)
 	peak = bins[peak_idx[peak_num - 1]]
@@ -322,9 +515,23 @@ def heightCorrection(src, makeItZero=False, peak_num=1, step=0.05):
 		dst.data = np.where(dst.data >= 0.0, dst.data, black)
 	return dst
 
-#マイカ表面を平面近似し、そのパラメーターに基づいて傾きを補正する
-#th_rangeで何nmまでをマイカ表面として扱うかを指定できる
-def tiltCorrection(src, th_range = 0.25):
+def tiltCorrection(src, th_range=0.25):
+	"""
+	tiltCorrection(src, th_range=0.25)
+
+	マイカ表面を平面近似し、そのパメラメーターに基づいて傾きを補正する関数です。
+
+	引数
+	----------
+	src : AfmImg形式の画像
+	th_range : 数値（オプション）
+		何nmまでをマイカ表面として扱うかを指定するか
+
+	戻り値
+	-------
+	dst : AfmImg形式の画像
+		傾きが修正された画像
+	"""
 	dst = heightCorrection(src)
 	explanatory_var = np.where(dst.data <= th_range)
 	explanatory_var = list(zip(*explanatory_var))
@@ -340,8 +547,23 @@ def tiltCorrection(src, th_range = 0.25):
 	dst.data = data.reshape(dst.shape)
 	return dst
 
-#highestに指定した以上の高さをすべてhighestに置換する
 def heightScaling(src, highest):
+	"""
+	heightScaling(src, highest)
+
+	highestに指定した以上の高さをすべてhighestに置換する関数です。
+
+	引数
+	----------
+	src : AfmImg形式の画像
+	highest : 数値
+		最大の高さ
+
+	戻り値
+	-------
+	dst : AfmImg形式の画像
+		highest以上の部分がhighestに置換された画像
+	"""
 	dst = src.copy()
 	white = np.zeros(dst.shape, dtype='float') + highest
 	dst.data = np.where(dst.data <= highest, dst.data, white)
@@ -393,8 +615,23 @@ def __make_filter(mask_src, size):
 	'''
 	return mask
 
-#ハイパスフィルター、sizeでフィルターのサイズを調整できる
 def highpass_filter(src, size):
+	"""
+	highpass_filter(src, size)
+
+	ハイパスフィルター
+
+	引数
+	----------
+	src : AfmImg形式の画像
+	size : 整数
+		フィルターのサイズ
+
+	戻り値
+	-------
+	dst : AfmImg形式の画像
+		フィルターがかかった画像
+	"""
 	def highpass(dft_img_src, *args):
 		dft_img = dft_img_src.copy()
 		#マスク作成
@@ -406,8 +643,23 @@ def highpass_filter(src, size):
 	dst = __dft_filter(src, highpass, size)
 	return dst
 
-#ローパスフィルター、sizeでフィルターのサイズを調整できる
 def lowpass_filter(src, size):
+	"""
+	lowpass_filter(src, size)
+
+	ローパスフィルター
+
+	引数
+	----------
+	src : AfmImg形式の画像
+	size : 整数
+		フィルターのサイズ
+
+	戻り値
+	-------
+	dst : AfmImg形式の画像
+		フィルターがかかった画像
+	"""
 	def lowpass(dft_img_src, *args):
 		dft_img = dft_img_src.copy()
 		#マスク作成
@@ -421,6 +673,24 @@ def lowpass_filter(src, size):
 
 #バンドパスフィルター、size_outer, size_innerで外側内側のフィルターのサイズを調整する
 def bandpass_filter(src, size_outer, size_inner):
+	"""
+	bandpass_filter(src, size_outer, size_inner)
+
+	ハイパスフィルター
+
+	引数
+	----------
+	src : AfmImg形式の画像
+	size_outer : 整数
+		外側フィルターのサイズ
+	size_inner : 整数
+		内側フィルターのサイズ
+
+	戻り値
+	-------
+	dst : AfmImg形式の画像
+		フィルターがかかった画像
+	"""
 	def bandpass(dft_img_src, *args):
 		dft_img = dft_img_src.copy()
 		#マスク作成
@@ -433,8 +703,23 @@ def bandpass_filter(src, size_outer, size_inner):
 	dst = __dft_filter(src, bandpass, size_outer, size_inner)
 	return dst
 
-#エッジを探すフィルター、動作が怪しい
 def find_edge(src, inner=True):
+	"""
+	find_edge(src, inner=True)
+
+	エッジを探すフィルター
+
+	引数
+	----------
+	src : AfmImg形式の画像
+	inner : bool型（オプション）
+		エッジを内側に追加するか（Ture）、外側に追加するか（False）
+
+	戻り値
+	-------
+	dst : AfmImg形式の画像
+		フィルターがかかった画像
+	"""
 	def normalize(img):
 		return (img - img.min()) / (img.max() - img.min())
 	gray = normalize(src.data)
@@ -463,7 +748,23 @@ def find_edge(src, inner=True):
 	return dst
 
 #find_edgeで探したエッジを元画像に足し算してエッジを強調させる
-def enhance_edge(src, k = 1.0, inner=True):
+def enhance_edge(src, inner=True):
+	"""
+	enhance_edge(src, inner=True)
+
+	エッジ強調フィルター
+
+	引数
+	----------
+	src : AfmImg形式の画像
+	inner : bool型（オプション）
+		エッジを内側に追加するか（Ture）、外側に追加するか（False）
+
+	戻り値
+	-------
+	dst : AfmImg形式の画像
+		フィルターがかかった画像
+	"""
 	def normalize(img):
 		return (img - img.min()) / (img.max() - img.min())
 	edge = find_edge(src)
@@ -493,30 +794,106 @@ def __median_filter(src_data, ksize):
 #メディアンフィルターを実際に使うときの関数、numbaを使用してjitコンパイラに通すことで高速化
 @numba.jit
 def median_filter(src, ksize = 3):
+	"""
+	median_filter(src, ksize = 3)
+
+	メディアンフィルター
+
+	引数
+	----------
+	src : AfmImg形式の画像
+	ksize : 整数（オプション）
+		フィルターのサイズ
+
+	戻り値
+	-------
+	dst : AfmImg形式の画像
+		フィルターがかかった画像
+	"""
 	#近傍にある画素値の中央値を出力画像の画素値に設定
 	dst = src.copy()
 	dst.data = __median_filter(src.data, ksize)
 	return dst
 
-#畳み込み演算を行う関数、任意のカーネルを指定できる
 def convolution_filter(src, kernel):
+	"""
+	convolution_filter(src, kernel)
+
+	畳み込み演算を行う関数
+
+	引数
+	----------
+	src : AfmImg形式の画像
+	kernel : 2次元リスト
+		任意のカーネルを指定できます
+
+	戻り値
+	-------
+	dst : AfmImg形式の画像
+		フィルターがかかった画像
+	"""
 	dst = src.copy()
 	dst.data = cv2.filter2D(src.data, -1, kernel)
 	return dst
 
-#平均値フィルター
 def average_filter(src, ksize = 3):
+	"""
+	average_filter(src, ksize = 3)
+
+	平均値フィルター
+
+	引数
+	----------
+	src : AfmImg形式の画像
+	ksize : 整数（オプション）
+		フィルターのサイズ
+
+	戻り値
+	-------
+	dst : AfmImg形式の画像
+		フィルターがかかった画像
+	"""
 	average = cv2.getStructuringElement(cv2.MORPH_RECT, (ksize,ksize))/ksize**2
 	return convolution_filter(src, average)
 
-#ガウシアンフィルター
-def gaussian_filter(src, ksize = 5, sigmaX = 0):
+def gaussian_filter(src, ksize = 5, sigma = 0):
+	"""
+	gaussian_filter(src, ksize = 5, sigma = 0)
+
+	ガウシアンフィルター
+
+	引数
+	----------
+	src : AfmImg形式の画像
+	ksize : 整数（オプション）
+		フィルターのサイズ
+	sigma : 数値（オプション）
+		ガウシアンカーネルの標準偏差。この値を大きくするとぼかしが強くなります。
+
+	戻り値
+	-------
+	dst : AfmImg形式の画像
+		フィルターがかかった画像
+	"""
 	gaussian = cv2.getGaussianKernel(ksize, sigmaX)
 	gaussian = np.array([[x*y for x in gaussian] for y in gaussian])
 	return convolution_filter(src, gaussian)
 
-#ラプラシアンフィルター
 def laplacian_filter(src):
+	"""
+	laplacian_filter(src)
+
+	ラプラシアンフィルター
+
+	引数
+	----------
+	src : AfmImg形式の画像
+
+	戻り値
+	-------
+	dst : AfmImg形式の画像
+		フィルターがかかった画像
+	"""
 	laplacian = np.array([
 						 [-1, -3, -4, -3, -1],
 						 [-3,  0,  6,  0, -3],
@@ -525,14 +902,67 @@ def laplacian_filter(src):
 						 [-1, -3, -4, -3, -1]], np.float32)
 	return convolution_filter(src, laplacian)
 
-#鮮鋭化フィルター
 def sharpen_filter(src):
+	"""
+	sharpen_filter(src)
+
+	鮮鋭化フィルター
+
+	引数
+	----------
+	src : AfmImg形式の画像
+
+	戻り値
+	-------
+	dst : AfmImg形式の画像
+		フィルターがかかった画像
+	"""
 	sharp = lambda k = 1: np.matrix('0,{0},0;{0},{1},{0};0,{0},0'.format(-k,1+4*k))
 	return convolution_filter(src, sharp)
 
 #OpenCVの画像用
-#画像に時間を書き込む関数
+class movieWriter:
+	"""
+	movieWriter(path, frame_time, imgShape)
+
+	cv2.VideoWriterをwith文に対応させ、使いやすくしたラッピングクラスです。
+
+	引数
+	----------
+	path : 動画の保存先
+	frame_time : 1フレームあたりの時間、単位は秒
+	imgShape : 画像のサイズ、shapeをそのまま指定してください
+
+	戻り値
+	-------
+	cv2.VideoWriter : cv2.VideoWriterのインスタンス
+	"""
+	def __init__(self, path, frame_time, imgShape):
+		self.fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+		self.fps = 1.0 / frame_time
+		self.movieWriter = cv2.VideoWriter(path, self.fourcc, self.fps, (imgShape[1], imgShape[0]))
+	def __enter__(self):
+		return self.movieWriter
+	def __exit__(self, type, value, traceback):
+		print("   Saving Movie   ")
+		self.movieWriter.release()
+
 def writeTime(src, time, frame_num = ""):
+	"""
+	writeTime(src, time, frame_num = "")
+
+	OpenCVのカラー画像に時間とフレームナンバーを書き込みます。
+
+	引数
+	----------
+	src : OpenCVのカラー画像
+	time : 時間、単位は秒
+	frame_num : フレームナンバー（オプション）
+
+	戻り値
+	-------
+	dst : 時間とフレームナンバーが書き込まれたOpenCV形式のカラー画像
+	"""
 	dst = src.copy()
 	round=lambda x:(x*10.0*2+1)//2/10.0
 	txt = str(round(time)) + "s"
