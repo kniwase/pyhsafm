@@ -6,7 +6,7 @@ OpenCV用の画像を出力することができ、必要に応じてOpenCVと�
  https://github.com/kniwase/pyhsafm を参照してください。
 """
 
-import cv2, struct, copy, csv, numpy as np, numba, warnings, os
+import cv2, struct, copy, csv, numpy as np, numba, warnings, os, datetime
 from scipy import signal
 from sklearn.linear_model import LinearRegression
 
@@ -191,9 +191,13 @@ class ASD_reader():
 		except IOError:
 			print('%s cannot be opened.' % path)
 			exit(-1)
-		self.__header = self.__read_header()
-		self.header = self.__header
-		self.__FrameNum = self.__header['FrameNum']
+		self.header = self.__read_header()
+		self.__FrameNum = self.header['FrameNum']
+		self.FrameTime = self.header['FrameTime']
+		self.Comment = self.header['Comment']
+		date_keys = ['Year', 'Month', 'Day', 'Hour', 'Minute', 'Second']
+		data_str = '%d-%d-%d %02d:%02d:%02d' % tuple([self.header[key] for key in date_keys])
+		self.date = datetime.datetime.strptime(data_str, '%Y-%m-%d %H:%M:%S')
 
 	def __enter__(self):
 		return self
@@ -252,8 +256,8 @@ class ASD_reader():
 		return header
 
 	def __read_frame(self, idx):
-		header_point = 165 + self.__header['OpeNameSize'] + self.__header['CommentSizeForSave']
-		DriverGainZ, PiezoConstZ, XPixel, YPixel, XScanSize, YScanSize = [self.__header[key] for key in ['DriverGainZ', 'PiezoConstZ', 'XPixel', 'YPixel', 'XScanSize', 'YScanSize']]
+		header_point = 165 + self.header['OpeNameSize'] + self.header['CommentSizeForSave']
+		DriverGainZ, PiezoConstZ, XPixel, YPixel, XScanSize, YScanSize = [self.header[key] for key in ['DriverGainZ', 'PiezoConstZ', 'XPixel', 'YPixel', 'XScanSize', 'YScanSize']]
 		self.__file.seek(header_point + (32 + 2*XPixel*YPixel)*idx)
 		frame_header_bin = self.__file.read(32)
 		frame_header_format = '=IHHhhffbbhii'
