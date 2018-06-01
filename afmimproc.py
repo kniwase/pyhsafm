@@ -192,9 +192,9 @@ class ASD_reader():
             print('%s cannot be opened.' % path)
             exit(-1)
         self.header = self.__read_header()
-        self.__FrameNum = self.header['FrameNum']
-        self.FrameTime = self.header['FrameTime']
-        self.Comment = self.header['Comment']
+        self.__frame_num = self.header['FrameNum']
+        self.frame_time = self.header['FrameTime']
+        self.comment = self.header['Comment']
         date_keys = ['Year', 'Month', 'Day', 'Hour', 'Minute', 'Second']
         data_str = '%d-%d-%d %02d:%02d:%02d' % tuple([self.header[key] for key in date_keys])
         self.date = datetime.datetime.strptime(data_str, '%Y-%m-%d %H:%M:%S')
@@ -214,27 +214,27 @@ class ASD_reader():
             yield self.__read_frame(idx)
 
     def __len__(self):
-        return self.__FrameNum
+        return self.__frame_num
 
     def __iter__(self):
-        for idx in range(self.__FrameNum):
+        for idx in range(self.__frame_num):
             yield self.__read_frame(idx)
 
     def __getitem__(self, idx):
         if type(idx) == slice:
             start = idx.start if idx.start != None else 0
-            stop  = idx.stop  if idx.stop  != None else self.__FrameNum
+            stop  = idx.stop  if idx.stop  != None else self.__frame_num
             step  = idx.step  if idx.step  != None else 1
             if step == 0: raise IndexError
-            if start < 0: start = self.__FrameNum + start
-            if stop  < 0: stop  = self.__FrameNum + stop
-            if start <= self.__FrameNum and stop <= self.__FrameNum:
+            if start < 0: start = self.__frame_num + start
+            if stop  < 0: stop  = self.__frame_num + stop
+            if start <= self.__frame_num and stop <= self.__frame_num:
                 return self.__img_generator(start, stop, step)
             else:
                 raise IndexError
         else:
-            if idx < self.__FrameNum:
-                return self.__read_frame(idx if idx >= 0 else self.__FrameNum + idx)
+            if idx < self.__frame_num:
+                return self.__read_frame(idx if idx >= 0 else self.__frame_num + idx)
             else:
                 raise IndexError
 
