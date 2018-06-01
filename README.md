@@ -1,14 +1,15 @@
 # pyhsafm
 
-このモジュールはHS-AFMで撮影された画像をPython上で処理するためのモジュールです。
-OpenCV用の画像を出力することができ、必要に応じてOpenCVとの連携が可能です。
+このモジュールはHS-AFMで撮影された画像をPython3上で処理するためのモジュールです。
+OpenCV v3用の画像を出力することができ、必要に応じてOpenCV v3との連携が可能です。  
+使用する際は、afmimprocをインポートしてください。
 ***
-
-## インストール
-インストールにはpipを使用します。
 
 ## 使い方
 ### 目次
+#### [依存関係](#依存関係)  
+#### [インポート方法](#インポート方法)  
+
 #### クラス
 - [AfmImg](#AfmImg)
 - [ASD_reader](#ASD_reader)
@@ -43,6 +44,21 @@ OpenCV用の画像を出力することができ、必要に応じてOpenCVと�
 - [writeTime](#writeTime)
 
 ***
+
+## 依存関係
+このモジュールは numpy, scipy, opencv-python, numba, sklearn に依存します。
+以下のコマンドでインストールを行ってください。
+```
+$ pip3 install numpy scipy opencv-python numba sklearn
+```
+
+## インポート方法
+```
+import sys
+sys.path.append('pyhsafmをgit cloneしたディレクトリ')
+import afmimproc as aip
+```
+
 ## クラス
 ### AfmImg
 
@@ -50,7 +66,7 @@ OpenCV用の画像を出力することができ、必要に応じてOpenCVと�
 
 HS-AFM像を扱うためのクラスです。
 HS-AFM像が持つXY方向の距離などの情報を扱うことができます。  
-直接データを渡してインスタンスを作成することも可能ですが、後述するクラスを利用することを推奨します。
+直接データを渡してインスタンスを作成することも可能ですが、後述するASD_readerを利用することを推奨します。
 
 **引数**  
 *data* : 高さ情報の2次元リスト  
@@ -58,20 +74,52 @@ HS-AFM像が持つXY方向の距離などの情報を扱うことができます
 *idx* :　画像のインデックス（オプション）  
 *frame_header* : 画像のメタ情報（オプション）
 
-OpenCVと同じ方法でのインデックスによる画像の切り抜き操作に対応しています。この場合、
-*元の画像の一部への参照ではなくコピーを返す*
-ことに注意してください。
 
 #### メソッド
-`self.copy()`  
+`AfmImg.copy()`  
 自身の深いコピーを生成します。
 
-`self.getOpenCVimageGray() `   
+`AfmImg.getOpenCVimageGray()`   
 OpenCV互換の8bitグレースケール画像を出力します。
 
-`self.getOpenCVimage() `   
+`AfmImg.getOpenCVimage()`   
 OpenCV互換の8bitカラー画像を出力します。
 
+`AfmImg[y0:y1,x0:x1]`   
+画像をy0からy1, x0からx1の範囲で切り抜きます。  
+*元の画像の一部への参照ではなくコピーを返す*
+ことに注意してください。  
+また、この方法で生成された画像はメンバ変数`idx`および`frame_header`を持っていません。
+
+#### メンバ変数
+`AfmImg.data` : 二次元ndarray（numpyリスト）  
+高さ情報の生データへのアクセスができます。
+
+`AfmImg.shape` : 要素数2のリスト  
+OpenCVと同じフォーマットで画像のサイズを持っています。
+
+`AfmImg.zdata` : 要素数2のリスト  
+高さの最小値、最大値を持っています。
+
+`AfmImg.XYlength` : 要素数2のリスト  
+XY方向の実際の長さ（測定時のスキャンサイズ）を持っています。
+
+`AfmImg.lenppixel` : 数値  
+1ピクセルあたりの実際の長さです。画像上でのピクセル数と積を取ることで実際の長さを求めることができます。
+
+`AfmImg.ns2ppixel` : 数値  
+1ピクセルあたりの実際の面積です。画像上で算出されるピクセルでの面積と積を取ることで実際の面積を求めることができます。  
+応用として、ns2ppixelと高さの積を取ることでそのピクセルの体積を計算することができます。この計算を他のピクセルに対しても適用し、総和を取ることで領域の体積を求めることができます。
+
+`AfmImg.idx` : 整数  
+ASDファイル内でのフレーム番号を持っています。
+
+`AfmImg.frame_header` : 辞書型リスト  
+測定時に付加されたヘッダーファイルの生データにアクセスできます。  
+次に示すキーを持っています。  
+```
+['CurrentNum', 'MaxData', 'MiniData', 'XOffset', 'YOffset', 'XTilt', 'YTilt', 'LaserFlag', 'Reserved', 'Reserved', 'Reserved', 'Reserved']
+```
 
 ### ASD_reader
 `ASD_reader(path)`
@@ -81,8 +129,56 @@ HS-AFMのASDファイルを読み込むためのクラスです。
 **引数**  
 *path* : 読み込むASDファイルのパス
 
+#### メソッド
+`ASD_reader[idx]` or `ASD_reader[start:stop:step]`  
+
 ファイル読み書きに使用するopenと同様にwith文に対応しています。
-読み込まれた一連の画像は、インデックスを使用してアクセスすることが可能です。*アクセスするごとに新たなAfmImgインスタンスが生成されることに注意してください。*
+読み込まれた一連の画像は、インデックスを使用してアクセスすることが可能です。*アクセスするごとに新たなAfmImgインスタンスが生成される* ことに注意してください。
+
+#### メンバ変数
+`ASD_reader.frame_time` : 数値  
+フレームあたりの時間を持っています。
+
+`ASD_reader.comment` : 文字列  
+測定時に付加されたコメントを持っています。
+
+`ASD_reader.date` : datetimeオブジェクト  
+測定の日時をdatetime型で持っています。
+
+`ASD_reader.header` : 辞書型リスト  
+測定時に付加されたヘッダーファイルの生データにアクセスできます。  
+次に示すキーを持っています。  
+```
+['FileType','FileHeaderSizeForSave', 'FrameHeaderSize', 'TextEncoding', 'OpeNameSize', 'CommentSizeForSave', 'DataType1ch', 'DataType2ch', 'FrameNum', 'ImageNum', 'ScanDirection', 'ScanTryNum', 'XPixel', 'YPixel', 'XScanSize', 'YScanSize', 'AveFlag', 'AverageNum', 'Year', 'Month', 'Day', 'Hour', 'Minute', 'Second', 'XRound', 'YRound', 'FrameTime', 'Sensitivity', 'PhaseSens', 'Offset1', 'Offset2', 'Offset3', 'Offset4', 'MachineNo', 'ADRange', 'ADResolution', 'MaxScanSizeX',　'MaxScanSizeY', 'PiezoConstX', 'PiezoConstY', 'PiezoConstZ', 'DriverGainZ', 'Comment']
+```
+
+**使用例**  
+```
+import afmimproc as aip
+
+with aip.ASD_reader('test.asd') as imgs:  #with文でASDファイルをimgsとして開く
+  #測定日を表示
+  print(imgs.date)
+
+  #コメントを表示
+  print(imgs.comment)
+
+  #1フレーム目を読み込んで表示
+  img0 = imgs[0]
+  aip.imshow(img0)
+
+  #全フレームを順番に表示
+  for img in imgs:
+    aip.imshow(img)
+
+  #101フレームから200フレームまで順番に表示
+  for img in imgs[100:200]:
+    aip.imshow(img)
+
+  #201フレームから300フレームまで2フレームごとに表示
+  for img in imgs[200:300:2]:
+    aip.imshow(img)
+```
 
 ***
 
