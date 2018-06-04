@@ -420,12 +420,12 @@ def implay(imgs, idx=None, func=None, args=None):
         idx = idx[0]
         end = idx[1]
 
-    cv2.namedWindow('Image (f:forward, b:backward, Esc:quit)', cv2.WINDOW_KEEPRATIO | cv2.WINDOW_NORMAL)
+    cv2.namedWindow('Image (f: forward, b: backward, Esc: quit)', cv2.WINDOW_KEEPRATIO | cv2.WINDOW_NORMAL)
     if func is None:
         img = gen_img(imgs[idx].getOpenCVimage(), idx*imgs.frame_time, idx)
     else:
         img = gen_img(func(imgs[idx], args), idx*imgs.frame_time, idx)
-    cv2.imshow('Image (f:forward, b:backward, Esc:quit)', img)
+    cv2.imshow('Image (f: forward, b: backward, Esc: quit)', img)
 
     input_key = 0
     idx_pre = idx
@@ -435,7 +435,7 @@ def implay(imgs, idx=None, func=None, args=None):
                 img = gen_img(imgs[idx], idx*imgs.frame_time, idx)
             else:
                 img = gen_img(func(imgs[idx], args), idx*imgs.frame_time, idx)
-            cv2.imshow('Image (f:forward, b:backward, Esc:quit)', img)
+            cv2.imshow('Image (f: forward, b: backward, Esc: quit)', img)
             idx_pre = idx
         input_key = cv2.waitKey(0)
         if input_key == 27:
@@ -447,7 +447,7 @@ def implay(imgs, idx=None, func=None, args=None):
             if idx != start:
                 idx -= 1
 
-    cv2.destroyWindow('Image (f:forward, b:backward, Esc:quit)')
+    cv2.destroyWindow('Image (f: forward, b: backward, Esc: quit)')
 
 
 #戻り値はヒストグラム、X軸、検出されたピーク
@@ -606,7 +606,7 @@ def tiltCorrection(src, th_range=0.25):
     ----------
     src : AfmImg形式の画像
     th_range : 数値（オプション）
-        何nmまでをマイカ表面として扱うかを指定するか
+        何nmまでをマイカ表面として扱うかを指定する
 
     戻り値
     -------
