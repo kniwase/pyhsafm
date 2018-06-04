@@ -375,9 +375,9 @@ def imshow_gray(img, text =''):
     cv2.imshow(text, img.getOpenCVimageGray())
     cv2.waitKey(0)
 
-def implay(imgs, idx=None):
+def implay(imgs, idx=None, func=None, args=None):
     """
-    implay(imgs, idx=None)
+    implay(imgs, idx=None, func=None, args=None)
 
     ASD_readerの画像を連続で表示する関数です。
     キーボード入力で操作します。
@@ -385,18 +385,30 @@ def implay(imgs, idx=None):
     b: 前の画像(backward)
     Esc：終了
 
+    funcとして画像に対する処理を記述した関数を渡すことができます。
+    funcは以下の条件で作成してください。
+        引数
+        ----------
+        src : 処理を行うAfmImg形式の画像
+        args：funcに渡す引数のリスト（オプション）
+
+        戻り値
+        -------
+        dst : OpenCV形式の画像
+
     引数
     ----------
-    imgs : 表示するAfmImg形式の画像のリスト
+    imgs : 表示するASD_readerの画像のリスト
     idx : 表示する範囲 [start, stop]（オプション）
+    func：画像に対する処理を書いた関数（オプション）
+    args：funcに渡す引数のリスト（オプション）
 
     戻り値
     -------
     なし
     """
-    def gen_img(src, time, idx):
-        dst = src.getOpenCVimage()
-        dst = writeTime(dst, time/1000.0, str(idx))
+    def gen_img(img, time, idx):
+        return writeTime(img, time/1000.0, str(idx))
         return dst
 
     if idx is None:
@@ -409,13 +421,21 @@ def implay(imgs, idx=None):
         end = idx[1]
 
     cv2.namedWindow('Image (f:forward, b:backward, Esc:quit)', cv2.WINDOW_KEEPRATIO | cv2.WINDOW_NORMAL)
-    cv2.imshow('Image (f:forward, b:backward, Esc:quit)', gen_img(imgs[idx], idx*imgs.frame_time, idx))
+    if func is None:
+        img = gen_img(imgs[idx].getOpenCVimage(), idx*imgs.frame_time, idx)
+    else:
+        img = gen_img(func(imgs[idx], args), idx*imgs.frame_time, idx)
+    cv2.imshow('Image (f:forward, b:backward, Esc:quit)', img)
 
     input_key = 0
     idx_pre = idx
     while True:
         if idx != idx_pre:
-            cv2.imshow('Image (f:forward, b:backward, Esc:quit)', gen_img(imgs[idx], idx*imgs.frame_time, idx))
+            if func is None:
+                img = gen_img(imgs[idx], idx*imgs.frame_time, idx)
+            else:
+                img = gen_img(func(imgs[idx], args), idx*imgs.frame_time, idx)
+            cv2.imshow('Image (f:forward, b:backward, Esc:quit)', img)
             idx_pre = idx
         input_key = cv2.waitKey(0)
         if input_key == 27:
@@ -936,7 +956,7 @@ def gaussian_filter(src, ksize = 5, sigma = 0):
     dst : AfmImg形式の画像
         フィルターがかかった画像
     """
-    gaussian = cv2.getGaussianKernel(ksize, sigmaX)
+    gaussian = cv2.getGaussianKernel(ksize, sigma)
     gaussian = np.array([[x*y for x in gaussian] for y in gaussian])
     return convolution_filter(src, gaussian)
 

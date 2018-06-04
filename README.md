@@ -238,20 +238,34 @@ AfmImgをグレースケールの画像ファイルとして表示する関数�
 
 
 ### implay  
-`implay(imgs, idx=None)`
+`implay(imgs, idx=None, func=None, args=None)`
 
 ASD_readerの画像を連続で表示する関数です。  
 キーボード入力で操作します。  
 f: 次の画像(forward)  
 b: 前の画像(backward)  
-Esc：終了  
+Esc：終了   
 
 引数  
 *imgs* : 表示するASD_readerのインスタンス  
-*idx* : 表示する範囲 [start, stop]（オプション）
+*idx* : 表示する範囲 [start, stop]（オプション）  
+*func*：画像に対する処理を書いた関数（オプション）  
+*args*：funcに渡す引数のリスト（オプション）  
 
 戻り値  
-なし
+なし  
+
+funcとして画像に対する処理を記述した関数を渡すことができます。  
+argsは必ず引数として渡されますが、関数内で使用しなくても構いません。  
+funcは以下の条件で作成してください。  
+&emsp;&emsp; 引数  
+&emsp;&emsp; ----------  
+&emsp;&emsp; src : 処理を行うAfmImg形式の画像  
+&emsp;&emsp; args：funcに渡す引数のリスト  
+&emsp;&emsp;  
+&emsp;&emsp; 戻り値  
+&emsp;&emsp; -------  
+&emsp;&emsp; dst : OpenCV形式の画像
 
 
 ### histogram  
