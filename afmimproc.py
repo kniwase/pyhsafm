@@ -451,9 +451,9 @@ def implay(imgs, idx=None, func=None, args=None):
 
 
 #戻り値はヒストグラム、X軸、検出されたピーク
-def histogram(img, range=None, step=0.1, order=None, smoothed=False, smoothing_order=3):
+def histogram(img, range=None, step=0.1, order=None, smoothed=False, smoothing_order=3, mask=None):
     """
-    histogram(img, range=None, step=0.1, order=None, smoothed=False, smoothing_order=3)
+    histogram(img, range=None, step=0.1, order=None, smoothed=False, smoothing_order=3, mask=None)
 
     画像のヒストグラムとそのピークリストを生成する関数です。
 
@@ -470,6 +470,8 @@ def histogram(img, range=None, step=0.1, order=None, smoothed=False, smoothing_o
         ヒストグラムを平滑化するかどうか
     smoothing_order : 整数（オプション）
         ヒストグラム平滑化の際に、平均を取る範囲
+    mask : マスク（オプション）
+        マスクされた部分を除いてヒストグラムを生成する
 
 
     戻り値
@@ -484,8 +486,16 @@ def histogram(img, range=None, step=0.1, order=None, smoothed=False, smoothing_o
     #stepに応じて最大値最小値を丸めるラムダ式
     round_min = lambda x, step: round(x-x%step, 3)
     round_max = lambda x, step: round(x-x%step+step, 3)
-    #データの1次元化
-    data = img.data.flatten()
+
+    if not mask is None:
+        #マスクの適用
+        unmasked = np.where(mask != 0.0)
+        unmasked = list(zip(*unmasked))
+        data = img.data
+        data = np.array([data[y,x] for y, x in unmasked])
+    else:
+        #データの1次元化
+        data = img.data.flatten()
     #rangeをstepに合うように調整する、もしrangeの指定がなければ最大値最小値から自動で決定
     if range is None:
         range = [round_min(data.min(), step), round_max(data.max(), step)]
@@ -510,15 +520,17 @@ def histogram(img, range=None, step=0.1, order=None, smoothed=False, smoothing_o
     return hist, hist_bins[:-1], peaks
 
 #大津の二値化による閾値取得用関数
-def threshold_otsu(img):
+def threshold_otsu(img, mask=None):
     """
-    threshold_otsu(img)
+    threshold_otsu(img, mask=None)
 
     大津の二値化に用いるしきい値を高さとして出力します。
 
     引数
     ----------
     img : AfmImg形式の画像
+    mask : マスク（オプション）
+        マスクされた部分を除いてしきい値を生成する
 
 
     戻り値
@@ -526,7 +538,19 @@ def threshold_otsu(img):
     threshold : 数値
         大津の二値化に用いるしきい値
     """
-    threshold_8bit = cv2.threshold(img.getOpenCVimageGray(), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[0]
+    if not mask is None:
+        #マスクの適用
+        unmasked = np.where(mask != 0.0)
+        unmasked = list(zip(*unmasked))
+        data = img.data
+        data = np.array([data[y,x] for y, x in unmasked])
+        data = np.reshape(data, (data.shape[0], 1))
+        img_copy = img.copy()
+        img_copy.data = data
+        threshold_8bit = img_copy.getOpenCVimageGray()
+    else:
+        data = img.getOpenCVimageGray()
+    threshold_8bit = cv2.threshold(data, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[0]
     threshold = (img.zdata[1]-img.zdata[0])*(threshold_8bit/255.0)+img.zdata[0]
     return threshold
 

@@ -269,7 +269,7 @@ funcは以下の条件で作成してください。
 
 
 ### histogram  
-`histogram(img, range=None, step=0.1, order=None, smoothed=False, smoothing_order=3)`
+`histogram(img, range=None, step=0.1, order=None, smoothed=False, smoothing_order=3, mask=None)`
 
 画像のヒストグラムとそのピークリストを生成する関数です。
 
@@ -284,7 +284,9 @@ funcは以下の条件で作成してください。
 *smoothed* : bool型（オプション）  
 &emsp;&emsp; ヒストグラムを平滑化するかどうか  
 *smoothing_order* : 整数（オプション）  
-&emsp;&emsp; ヒストグラム平滑化の際に、平均を取る範囲
+&emsp;&emsp; ヒストグラム平滑化の際に、平均を取る範囲  
+*mask* : マスク（オプション）  
+&emsp;&emsp; マスクされた部分を除いてヒストグラムを生成する  
 
 戻り値  
 *hist* : リスト  
@@ -296,12 +298,14 @@ funcは以下の条件で作成してください。
 
 
 ### threshold_otsu
-`threshold_otsu(img)`
+`threshold_otsu(img, mask=None)`
 
 大津の二値化に用いるしきい値を高さとして出力します。
 
 引数  
 *img* : AfmImg形式の画像
+*mask* : マスク（オプション）
+    マスクされた部分を除いてしきい値を生成する
 
 戻り値  
 *threshold* : 数値  
