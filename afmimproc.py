@@ -379,10 +379,10 @@ def implay(imgs, idx=None):
     """
     implay(imgs, idx=None)
 
-    AfmImgのリストを連続で表示する関数です。
-    矢印キーで操作します。
-    右：次の画像
-    左：前の画像
+    ASD_readerの画像を連続で表示する関数です。
+    キーボード入力で操作します。
+    f: 次の画像(forward)
+    b: 前の画像(backward)
     Esc：終了
 
     引数
@@ -394,6 +394,11 @@ def implay(imgs, idx=None):
     -------
     なし
     """
+    def gen_img(src, time, idx):
+        dst = src.getOpenCVimage()
+        dst = writeTime(dst, time/1000.0, str(idx))
+        return dst
+
     if idx is None:
         start = 0
         idx = 0
@@ -403,15 +408,14 @@ def implay(imgs, idx=None):
         idx = idx[0]
         end = idx[1]
 
-    cv2.namedWindow('Image', cv2.WINDOW_KEEPRATIO | cv2.WINDOW_NORMAL)
-    cv2.imshow('Image', imgs[idx].getOpenCVimage())
-    print('implay')
+    cv2.namedWindow('Image (f:forward, b:backward, Esc:quit)', cv2.WINDOW_KEEPRATIO | cv2.WINDOW_NORMAL)
+    cv2.imshow('Image (f:forward, b:backward, Esc:quit)', gen_img(imgs[idx], idx*imgs.frame_time, idx))
 
     input_key = 0
     idx_pre = idx
     while True:
         if idx != idx_pre:
-            cv2.imshow('Image', imgs[idx].getOpenCVimage())
+            cv2.imshow('Image (f:forward, b:backward, Esc:quit)', gen_img(imgs[idx], idx*imgs.frame_time, idx))
             idx_pre = idx
         input_key = cv2.waitKey(0)
         if input_key == 27:
@@ -422,11 +426,8 @@ def implay(imgs, idx=None):
         elif input_key == 98: #98はb
             if idx != start:
                 idx -= 1
-        sys.stdout.write('\r%s\rNow showing: %4d' % (' '*50, idx))
-        sys.stdout.flush()
 
-    cv2.destroyWindow('Image')
-    print('\nimplay quit')
+    cv2.destroyWindow('Image (f:forward, b:backward, Esc:quit)')
 
 
 #戻り値はヒストグラム、X軸、検出されたピーク

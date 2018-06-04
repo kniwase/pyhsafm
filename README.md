@@ -240,14 +240,14 @@ AfmImgをグレースケールの画像ファイルとして表示する関数�
 ### implay  
 `implay(imgs, idx=None)`
 
-AfmImgのリストを連続で表示する関数です。  
+ASD_readerの画像を連続で表示する関数です。  
 キーボード入力で操作します。  
 f: 次の画像(forward)  
 b: 前の画像(backward)  
 Esc：終了  
 
 引数  
-*imgs* : 表示するAfmImg形式の画像のリスト  
+*imgs* : 表示するASD_readerのインスタンス  
 *idx* : 表示する範囲 [start, stop]（オプション）
 
 戻り値  
@@ -548,7 +548,7 @@ OpenCVのカラー画像に時間とフレームナンバーを書き込みま�
 
 引数  
 *src* : OpenCVのカラー画像  
-*time* : 時間、単位は秒  
+*time* : 時間、単位はmsec  
 *frame_num* : フレームナンバー（オプション）  
 
 戻り値  
