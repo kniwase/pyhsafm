@@ -6,7 +6,7 @@ OpenCV用の画像を出力することができ、必要に応じてOpenCVと�
  https://github.com/kniwase/pyhsafm を参照してください。
 """
 
-import cv2, struct, copy, csv, numpy as np, numba, warnings, os, datetime
+import cv2, struct, copy, csv, numpy as np, numba, warnings, sys, os, datetime
 from scipy import signal
 from sklearn.linear_model import LinearRegression
 
@@ -374,6 +374,60 @@ def imshow_gray(img, text =''):
     """
     cv2.imshow(text, img.getOpenCVimageGray())
     cv2.waitKey(0)
+
+def implay(imgs, idx=None):
+    """
+    implay(imgs, idx=None)
+
+    AfmImgのリストを連続で表示する関数です。
+    矢印キーで操作します。
+    右：次の画像
+    左：前の画像
+    Esc：終了
+
+    引数
+    ----------
+    imgs : 表示するAfmImg形式の画像のリスト
+    idx : 表示する範囲 [start, stop]（オプション）
+
+    戻り値
+    -------
+    なし
+    """
+    if idx is None:
+        start = 0
+        idx = 0
+        end = len(imgs)-1
+    else:
+        start = idx[0]
+        idx = idx[0]
+        end = idx[1]
+
+    cv2.namedWindow('Image', cv2.WINDOW_KEEPRATIO | cv2.WINDOW_NORMAL)
+    cv2.imshow('Image', imgs[idx].getOpenCVimage())
+    print('implay')
+
+    input_key = 0
+    idx_pre = idx
+    while True:
+        if idx != idx_pre:
+            cv2.imshow('Image', imgs[idx].getOpenCVimage())
+            idx_pre = idx
+        input_key = cv2.waitKey(0)
+        if input_key == 27:
+            break
+        elif input_key == 102: #102はf
+            if idx != end:
+                idx += 1
+        elif input_key == 98: #98はb
+            if idx != start:
+                idx -= 1
+        sys.stdout.write('\r%s\rNow showing: %4d' % (' '*50, idx))
+        sys.stdout.flush()
+
+    cv2.destroyWindow('Image')
+    print('\nimplay quit')
+
 
 #戻り値はヒストグラム、X軸、検出されたピーク
 def histogram(img, range=None, step=0.1, order=None, smoothed=False, smoothing_order=3):
