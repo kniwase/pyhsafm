@@ -566,6 +566,27 @@ def binarize(src, lowest, highest=None):
         dst.data = cv2.bitwise_and(mask1, mask2)
     return dst
 
+def apply_mask(src, mask):
+    """
+    apply_mask(src, mask)
+
+    AfmImg形式の画像にOpenCV形式のマスクを適用する関数です。
+
+    引数
+    ----------
+    src : AfmImg形式の画像
+    step : OpenCV形式のマスク
+
+    戻り値
+    -------
+    dst : マスクが適用されたAfmImg形式の画像
+    """
+    src_data = src.data
+    dst_data = cv2.bitwise_and(src_data, src_data, mask=mask)
+    dst = src.copy()
+    dst.data = dst_data
+    return dst
+
 def heightCorrection(src, makeItZero=False, peak_num=1, step=0.05):
     """
     heightCorrection(src, makeItZero=False, peak_num=1, step=0.05)

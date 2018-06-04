@@ -21,9 +21,11 @@ OpenCV v3用の画像を出力することができ、必要に応じてOpenCV v
 - [imwrite_gray](#imwrite_gray)
 - [imshow](#imshow)
 - [imshow_gray](#imshow_gray)
+- [implay](#implay)
 - [histogram](#histogram)
 - [threshold_otsu](#threshold_otsu)
 - [binarize](#binarize)
+- [apply_mask](#apply_mask)
 - [heightCorrection](#heightCorrection)
 - [tiltCorrection](#tiltCorrection)
 - [heightScaling](#heightScaling)
@@ -259,12 +261,10 @@ funcとして画像に対する処理を記述した関数を渡すことがで�
 argsは必ず引数として渡されますが、関数内で使用しなくても構いません。  
 funcは以下の条件で作成してください。  
 &emsp;&emsp; 引数  
-&emsp;&emsp; ----------  
 &emsp;&emsp; src : 処理を行うAfmImg形式の画像  
 &emsp;&emsp; args：funcに渡す引数のリスト  
 &emsp;&emsp;  
 &emsp;&emsp; 戻り値  
-&emsp;&emsp; -------  
 &emsp;&emsp; dst : OpenCV形式の画像
 
 
@@ -323,6 +323,19 @@ funcは以下の条件で作成してください。
 戻り値  
 *dst* : AfmImg形式の画像  
 &emsp;&emsp; 二値化（高さ1.0nmまたは0.0nm）された画像  
+
+
+### apply_mask
+`apply_mask(src, mask)`
+
+AfmImg形式の画像にOpenCV形式のマスクを適用する関数です。  
+
+引数   
+*src* : AfmImg形式の画像  
+*step* : OpenCV形式のマスク  
+
+戻り値  
+*dst* : マスクが適用されたAfmImg形式の画像  
 
 
 ### heightCorrection  
