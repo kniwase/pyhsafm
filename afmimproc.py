@@ -337,7 +337,7 @@ def imwrite_gray(path, img):
     """
     cv2.imwrite(path, img.getOpenCVimageGray())
 
-def imshow(img, text =''):
+def imshow(img, text ='Image'):
     """
     imshow(img, text='')
 
@@ -352,8 +352,10 @@ def imshow(img, text =''):
     -------
     なし
     """
+    cv2.namedWindow(text, cv2.WINDOW_KEEPRATIO | cv2.WINDOW_NORMAL)
     cv2.imshow(text, img.getOpenCVimage())
     cv2.waitKey(0)
+    cv2.destroyWindow(text)
 
 def imshow_gray(img, text =''):
     """
