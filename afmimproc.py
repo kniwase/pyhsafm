@@ -407,9 +407,6 @@ def implay(imgs, idx=None, func=None, args=None):
     -------
     なし
     """
-    def gen_img(img, time, idx):
-        return writeTime(img, time/1000.0, str(idx))
-        return dst
 
     if idx is None:
         start = 0
@@ -422,9 +419,9 @@ def implay(imgs, idx=None, func=None, args=None):
 
     cv2.namedWindow('Image (f: forward, b: backward, Esc: quit)', cv2.WINDOW_KEEPRATIO | cv2.WINDOW_NORMAL)
     if func is None:
-        img = gen_img(imgs[idx].getOpenCVimage(), idx*imgs.frame_time, idx)
+        img = writeTime(imgs[idx].getOpenCVimage(), idx*imgs.frame_time/1000.0, str(idx))
     else:
-        img = gen_img(func(imgs[idx], args), idx*imgs.frame_time, idx)
+        img = writeTime(func(imgs[idx], args), idx*imgs.frame_time/1000.0, str(idx))
     cv2.imshow('Image (f: forward, b: backward, Esc: quit)', img)
 
     input_key = 0
@@ -432,9 +429,9 @@ def implay(imgs, idx=None, func=None, args=None):
     while True:
         if idx != idx_pre:
             if func is None:
-                img = gen_img(imgs[idx], idx*imgs.frame_time, idx)
+                img = writeTime(imgs[idx].getOpenCVimage(), idx*imgs.frame_time/1000.0, str(idx))
             else:
-                img = gen_img(func(imgs[idx], args), idx*imgs.frame_time, idx)
+                img = writeTime(func(imgs[idx], args), idx*imgs.frame_time/1000.0, str(idx))
             cv2.imshow('Image (f: forward, b: backward, Esc: quit)', img)
             idx_pre = idx
         input_key = cv2.waitKey(0)
