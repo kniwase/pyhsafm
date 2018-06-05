@@ -222,16 +222,8 @@ class ASD_reader():
 
     def __getitem__(self, idx):
         if type(idx) == slice:
-            start = idx.start if idx.start != None else 0
-            stop  = idx.stop  if idx.stop  != None else self.__frame_num
-            step  = idx.step  if idx.step  != None else 1
-            if step == 0: raise IndexError
-            if start < 0: start = self.__frame_num + start
-            if stop  < 0: stop  = self.__frame_num + stop
-            if start <= self.__frame_num and stop <= self.__frame_num:
-                return self.__img_generator(start, stop, step)
-            else:
-                raise IndexError
+            start, stop, step = idx.indices(self.__frame_num)
+            return self.__img_generator(start, stop, step)
         else:
             if idx < self.__frame_num:
                 return self.__read_frame(idx if idx >= 0 else self.__frame_num + idx)
