@@ -402,12 +402,12 @@ def implay(imgs, idx=None, func=None, args=None):
 
     if idx is None:
         start = 0
-        idx = 0
         end = len(imgs)-1
+        idx = 0
     else:
         start = idx[0]
-        idx = idx[0]
         end = idx[1]
+        idx = idx[0]
 
     cv2.namedWindow('Image (f: forward, b: backward, Esc: quit)', cv2.WINDOW_KEEPRATIO | cv2.WINDOW_NORMAL)
     if func is None:
