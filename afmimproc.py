@@ -225,7 +225,7 @@ class ASD_reader():
             start, stop, step = idx.indices(self.__frame_num)
             return self.__img_generator(start, stop, step)
         else:
-            if idx < self.__frame_num:
+            if idx < self.__frame_num and idx > -1*self.__frame_num:
                 return self.__read_frame(idx if idx >= 0 else self.__frame_num + idx)
             else:
                 raise IndexError
