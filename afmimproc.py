@@ -542,9 +542,8 @@ def threshold_otsu(img, mask=None):
         data = img.data
         data = np.array([data[y,x] for y, x in unmasked])
         data = np.reshape(data, (data.shape[0], 1))
-        img_copy = img.copy()
-        img_copy.data = data
-        threshold_8bit = img_copy.getOpenCVimageGray()
+        data = (data - img.zdata[0]) / (img.zdata[1] - img.zdata[0])
+        data = np.uint8(data * 255)
     else:
         data = img.getOpenCVimageGray()
     threshold_8bit = cv2.threshold(data, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[0]
