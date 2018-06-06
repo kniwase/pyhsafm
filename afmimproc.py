@@ -367,9 +367,9 @@ def imshow_gray(img, text =''):
     cv2.imshow(text, img.getOpenCVimageGray())
     cv2.waitKey(0)
 
-def implay(imgs, idx=None, func=None, args=None):
+def implay(imgs, idx=None, time=True, func=None, args=None):
     """
-    implay(imgs, idx=None, func=None, args=None)
+    implay(imgs, idx=None, time=True, func=None, args=None)
 
     ASD_readerの画像を連続で表示する関数です。
     キーボード入力で操作します。
@@ -381,7 +381,10 @@ def implay(imgs, idx=None, func=None, args=None):
     funcは以下の条件で作成してください。
         引数
         ----------
-        src : 処理を行うAfmImg形式の画像
+        imgs : 表示するASD_readerのインスタンス
+        idx : 表示する範囲 [start, stop]（オプション）
+        time：時間を表示するかどうか（オプション）
+        func：画像に対する処理を書いた関数（オプション）
         args：funcに渡す引数のリスト（オプション）
 
         戻り値
@@ -400,6 +403,15 @@ def implay(imgs, idx=None, func=None, args=None):
     なし
     """
 
+    def make_display_img(imgs, idx, time, func, args):
+        if func is None:
+            img = imgs[idx].getOpenCVimage()
+        else:
+            img = func(imgs[idx], args)
+        if time:
+            img = writeTime(img, idx*imgs.frame_time/1000.0, str(idx))
+        return img
+
     if idx is None:
         start = 0
         end = len(imgs)-1
@@ -410,20 +422,14 @@ def implay(imgs, idx=None, func=None, args=None):
         idx = idx[0]
 
     cv2.namedWindow('Image (f: forward, b: backward, Esc: quit)', cv2.WINDOW_KEEPRATIO | cv2.WINDOW_NORMAL)
-    if func is None:
-        img = writeTime(imgs[idx].getOpenCVimage(), idx*imgs.frame_time/1000.0, str(idx))
-    else:
-        img = writeTime(func(imgs[idx], args), idx*imgs.frame_time/1000.0, str(idx))
+    img = make_display_img(imgs, idx, time, func, args)
     cv2.imshow('Image (f: forward, b: backward, Esc: quit)', img)
 
     input_key = 0
     idx_pre = idx
     while True:
         if idx != idx_pre:
-            if func is None:
-                img = writeTime(imgs[idx].getOpenCVimage(), idx*imgs.frame_time/1000.0, str(idx))
-            else:
-                img = writeTime(func(imgs[idx], args), idx*imgs.frame_time/1000.0, str(idx))
+            img = make_display_img(imgs, idx, time, func, args)
             cv2.imshow('Image (f: forward, b: backward, Esc: quit)', img)
             idx_pre = idx
         input_key = cv2.waitKey(0)

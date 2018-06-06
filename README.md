@@ -240,7 +240,7 @@ AfmImgをグレースケールの画像ファイルとして表示する関数�
 
 
 ### implay  
-`implay(imgs, idx=None, func=None, args=None)`
+`implay(imgs, idx=None, time=True, func=None, args=None)`
 
 ASD_readerの画像を連続で表示する関数です。  
 キーボード入力で操作します。  
@@ -251,6 +251,7 @@ Esc：終了
 引数  
 *imgs* : 表示するASD_readerのインスタンス  
 *idx* : 表示する範囲 [start, stop]（オプション）  
+*time*：時間を表示するかどうか（オプション）  
 *func*：画像に対する処理を書いた関数（オプション）  
 *args*：funcに渡す引数のリスト（オプション）  
 
