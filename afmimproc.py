@@ -1072,7 +1072,7 @@ def writeTime(src, time, frame_num = "", font_size = 1.2):
     src : OpenCVのカラー画像
     time : 時間、単位は秒
     frame_num : フレームナンバー（オプション）
-    font_size : 技官表示のフォントサイズ（オプション）
+    font_size : 時間表示のフォントサイズ（オプション）
 
     戻り値
     -------
@@ -1084,8 +1084,8 @@ def writeTime(src, time, frame_num = "", font_size = 1.2):
     font = cv2.FONT_HERSHEY_DUPLEX
     font_size = 1.2
     position = (15, 45)
-    dst = cv2.putText(dst, txt, position, font, font_size, (0, 0, 0), 6, cv2.LINE_AA)
-    dst = cv2.putText(dst, txt, position, font, font_size, (255, 255, 255), 2, cv2.LINE_AA)
+    dst = cv2.putText(dst, txt, position, font, font_size, (0, 0, 0), int(font_size*5), cv2.LINE_AA)
+    dst = cv2.putText(dst, txt, position, font, font_size, (255, 255, 255), int(font_size*5/3), cv2.LINE_AA)
     if frame_num != "":
         txt = frame_num
         font = cv2.FONT_HERSHEY_DUPLEX
