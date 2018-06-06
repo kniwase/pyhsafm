@@ -573,7 +573,7 @@ cv2.VideoWriter : cv2.VideoWriterのインスタンス
 
 
 ### writeTime  
-`writeTime(src, time, frame_num = "")`
+`writeTime(src, time, frame_num = "", font_size = 1.2)`
 
 OpenCVのカラー画像に時間とフレームナンバーを書き込みます。
 
@@ -581,6 +581,7 @@ OpenCVのカラー画像に時間とフレームナンバーを書き込みま�
 *src* : OpenCVのカラー画像  
 *time* : 時間、単位はmsec  
 *frame_num* : フレームナンバー（オプション）  
+*font_size* : 時間表示のフォントサイズ（オプション）
 
 戻り値  
 *dst* : 時間とフレームナンバーが書き込まれたOpenCV形式のカラー画像

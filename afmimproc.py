@@ -1061,9 +1061,9 @@ class movieWriter:
         print("   Saving Movie   ")
         self.movieWriter.release()
 
-def writeTime(src, time, frame_num = ""):
+def writeTime(src, time, frame_num = "", font_size = 1.2):
     """
-    writeTime(src, time, frame_num = "")
+    writeTime(src, time, frame_num = "", font_size = 1.2)
 
     OpenCVのカラー画像に時間とフレームナンバーを書き込みます。
 
@@ -1072,6 +1072,7 @@ def writeTime(src, time, frame_num = ""):
     src : OpenCVのカラー画像
     time : 時間、単位は秒
     frame_num : フレームナンバー（オプション）
+    font_size : 技官表示のフォントサイズ（オプション）
 
     戻り値
     -------
