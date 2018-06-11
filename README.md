@@ -87,6 +87,9 @@ OpenCV互換の8bitグレースケール画像を出力します。
 `AfmImg.getOpenCVimage()`   
 OpenCV互換の8bitカラー画像を出力します。
 
+`AfmImg.getOpenCVColorMap()`   
+OpenCV互換の8bitカラーマップを出力します。
+
 `AfmImg[y0:y1,x0:x1]`   
 画像をy0からy1, x0からx1の範囲で切り抜きます。  
 *元の画像の一部への参照ではなくコピーを返す*

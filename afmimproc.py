@@ -156,6 +156,14 @@ class AfmImg():
         img_color[:,:,2] = np.ones(self.shape, np.uint8)*255
         return cv2.cvtColor(img_color, cv2.COLOR_HLS2BGR)
 
+    def getOpenCVColorMap(self):
+        """
+        self.getOpenCVColorMap()
+
+        OpenCV互換の8bitカラーマップを出力します。
+        """
+        return cv2.applyColorMap(self.getOpenCVimageGray(), cv2.COLORMAP_JET)
+
 
 #HS-AFMのASDファイルを読み込むためのクラス
 #
