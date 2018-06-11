@@ -21,6 +21,7 @@ OpenCV v3用の画像を出力することができ、必要に応じてOpenCV v
 - [imwrite_gray](#imwrite_gray)
 - [imshow](#imshow)
 - [imshow_gray](#imshow_gray)
+- [imshow_opencv](#imshow_opencv)
 - [implay](#implay)
 - [histogram](#histogram)
 - [threshold_otsu](#threshold_otsu)
@@ -236,6 +237,19 @@ AfmImgをグレースケールの画像ファイルとして表示する関数�
 
 引数  
 *img* : 表示するAfmImg形式の画像  
+*text* : 表示するウィンドウのタイトル（オプション）
+
+戻り値  
+なし
+
+
+### imshow_opencv  
+`imshow_opencv(img, text='')`
+
+OepnCVの画像を表示する関数です。
+
+引数  
+*img* : 表示するOepnCV形式の画像  
 *text* : 表示するウィンドウのタイトル（オプション）
 
 戻り値  

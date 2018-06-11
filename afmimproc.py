@@ -372,8 +372,30 @@ def imshow_gray(img, text =''):
     -------
     なし
     """
+    cv2.namedWindow(text, cv2.WINDOW_KEEPRATIO | cv2.WINDOW_NORMAL)
     cv2.imshow(text, img.getOpenCVimageGray())
     cv2.waitKey(0)
+    cv2.destroyWindow(text)
+
+def imshow_opencv(img, text =''):
+    """
+    imshow_gray(img, text='')
+
+    AfmImgをグレースケールの画像ファイルとして表示する関数です。
+
+    引数
+    ----------
+    img : 表示するAfmImg形式の画像
+    text : 表示するウィンドウのタイトル（オプション）
+
+    戻り値
+    -------
+    なし
+    """
+    cv2.namedWindow(text, cv2.WINDOW_KEEPRATIO | cv2.WINDOW_NORMAL)
+    cv2.imshow(text, img)
+    cv2.waitKey(0)
+    cv2.destroyWindow(text)
 
 def implay(imgs, idx=None, time=True, func=None, args=None):
     """
