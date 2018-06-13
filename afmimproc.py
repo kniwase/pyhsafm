@@ -1026,7 +1026,7 @@ def gaussian_filter(src, ksize = 5, sigma = 0):
         フィルターがかかった画像
     """
     gaussian = cv2.getGaussianKernel(ksize, sigma)
-    gaussian = np.array([[x*y for x in gaussian] for y in gaussian])
+    gaussian = np.dot(np.matrix(gaussian), np.matrix(gaussian.transpose()))
     return convolution_filter(src, gaussian)
 
 def laplacian_filter(src):
