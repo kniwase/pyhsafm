@@ -736,34 +736,47 @@ def __dft_filter(src, func, *args):
         dst = np.fft.ifft2(fimg)
         return dst
 
-    #離散フーリエ変換
+    #フーリエ変換前の前処理
+    #配列のサイズが2の累乗の時に最も高速に動く
     dst = src.copy()
-    dft_img = dft(dst.data)
+    data = dst.data
+    new_shape = (cv2.getOptimalDFTSize(data.shape[0]), cv2.getOptimalDFTSize(data.shape[1]))
+    new_data = np.zeros(new_shape)
+    new_data[:data.shape[0],:data.shape[1]] = data
+    #離散フーリエ変換
+    dft_img = dft(new_data)
+    #norm = lambda data: (data - data.min()) / (data.max() - data.min())
+    #imshow_opencv(20*np.log(np.abs(dft_img)))
 
     #フィルター処理
     #引数に指定した関数を使用する
     dft_img = func(dft_img, *args)
+    #imshow_opencv(20*np.log(np.abs(dft_img)))
 
     #逆離散フーリエ変換
     idft_img = idft(dft_img)
     #虚数部を除去
-    dst.data = np.abs(idft_img)
+    dst.data = np.abs(idft_img)[:data.shape[0],:data.shape[1]].copy()
     return dst
 
 #フィルタージェネレーター
-def __make_filter(mask_src, size):
-    mask = mask_src.copy()
-    #フィルターのサイズ、位置設定
-    size = (int(size/100.0*mask.shape[1]/2), int(size/100.0*mask.shape[0]/2))
-    pos = (int(mask.shape[1]/2), int(mask.shape[0]/2))
-    #sizeで指定された大きさの楕円を描画
-    cv2.ellipse(mask, (pos, size, 0), 0 if mask[pos[1],pos[0]] else 255, -1)
-    '''#マスクの形状確認
-    cv2.imshow('', mask)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-    '''
-    return mask
+def __make_filter(shape, size, high = False):
+    norm = lambda data: (data - data.min()) / (data.max() - data.min())
+    size_x = int((size/100.0)*shape[1])
+    size_y = int((size/100.0)*shape[0])
+
+    gaussian_X = cv2.getGaussianKernel(size_x, size_x*10)
+    gaussian_Y = cv2.getGaussianKernel(size_y, size_y*10)
+
+    window = np.array(np.dot(np.matrix(gaussian_Y), np.matrix(gaussian_X.transpose())))
+
+    filter_ = np.zeros(shape, dtype=np.float64)
+    y = shape[0] // 2 - size_y // 2
+    x = shape[1] // 2 - size_x // 2
+    filter_[y:y+size_y, x:x+size_x] = window
+
+    filter_ = norm(filter_)
+    return 1 - filter_ if high else filter_
 
 def highpass_filter(src, size):
     """
@@ -785,10 +798,9 @@ def highpass_filter(src, size):
     def highpass(dft_img_src, *args):
         dft_img = dft_img_src.copy()
         #マスク作成
-        mask = __make_filter(np.ones_like(dft_img, dtype = 'uint8')*255, args[0])
+        mask = __make_filter(dft_img.shape, args[0], True)
         #マスキング
-        black = np.zeros_like(dft_img, dtype = 'complex128')
-        dft_img = np.where(mask == 255, dft_img, black)
+        dft_img = dft_img.real*mask + dft_img.imag*mask * 1j
         return dft_img
     dst = __dft_filter(src, highpass, size)
     return dst
@@ -813,10 +825,9 @@ def lowpass_filter(src, size):
     def lowpass(dft_img_src, *args):
         dft_img = dft_img_src.copy()
         #マスク作成
-        mask = __make_filter(np.zeros_like(dft_img, dtype = 'uint8'), args[0])
+        mask = __make_filter(dft_img.shape, args[0])
         #マスキング
-        black = np.zeros_like(dft_img, dtype = 'complex128')
-        dft_img = np.where(mask == 255, dft_img, black)
+        dft_img = dft_img.real*mask + dft_img.imag*mask * 1j
         return dft_img
     dst = __dft_filter(src, lowpass, size)
     return dst
@@ -842,13 +853,14 @@ def bandpass_filter(src, size_outer, size_inner):
         フィルターがかかった画像
     """
     def bandpass(dft_img_src, *args):
+        norm = lambda data: (data - data.min()) / (data.max() - data.min())
         dft_img = dft_img_src.copy()
         #マスク作成
-        mask = __make_filter(np.zeros_like(dft_img, dtype = 'uint8'), args[0])
-        mask = __make_filter(mask, args[1])
+        mask_low = __make_filter(dft_img.shape, args[0])
+        mask_high = __make_filter(dft_img.shape, args[1], True)
+        mask = norm(mask_low * mask_high)
         #マスキング
-        black = np.zeros_like(dft_img, dtype = 'complex128')
-        dft_img = np.where(mask == 255, dft_img, black)
+        dft_img = dft_img.real*mask + dft_img.imag*mask * 1j
         return dft_img
     dst = __dft_filter(src, bandpass, size_outer, size_inner)
     return dst
