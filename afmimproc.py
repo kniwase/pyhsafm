@@ -569,7 +569,8 @@ def threshold_otsu(img, mask=None):
         unmasked = list(zip(*unmasked))
         data = img.data
         data = np.array([data[y,x] for y, x in unmasked])
-        data = np.reshape(data, (data.shape[0], 1))
+        shape = (lambda n:tuple((i, int(n/i)) for i in range(2, int(n**(1/2))+1) if n % i == 0))(len(data))[-1]
+        data = np.reshape(data, shape)
         data = (data - img.zdata[0]) / (img.zdata[1] - img.zdata[0])
         data = np.uint8(data * 255)
     else:
