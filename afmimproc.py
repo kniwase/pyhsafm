@@ -978,7 +978,7 @@ def median_filter(src, ksize = 3):
     dst.data = __median_filter(src.data, ksize)
     return dst
 
-def convolution_filter(src, kernel):
+def convolution_filter(src, kernel, delta=None):
     """
     convolution_filter(src, kernel)
 
@@ -996,7 +996,7 @@ def convolution_filter(src, kernel):
         フィルターがかかった画像
     """
     dst = src.copy()
-    dst.data = cv2.filter2D(src.data, -1, kernel)
+    dst.data = cv2.filter2D(src.data, -1, kernel, delta=delta) if delta else cv2.filter2D(src.data, -1, kernel)
     return dst
 
 def average_filter(src, ksize = 3):
@@ -1065,7 +1065,7 @@ def laplacian_filter(src):
                          [-1, -3, -4, -3, -1]], np.float32)
     return convolution_filter(src, laplacian)
 
-def emboss_filter(src):
+def emboss_filter(src, offset=None):
     """
     emboss_filter(src)
 
@@ -1083,7 +1083,9 @@ def emboss_filter(src):
     emboss = np.array([[-2, -1, 0],
                      [-1,  1, 1],
                      [-1,  1, 2]], np.float32)
-    return convolution_filter(src, emboss)
+    if offset is None:
+        offset = 0
+    return convolution_filter(src, emboss, delta=offset)
 
 def sharpen_filter(src):
     """
