@@ -1065,6 +1065,26 @@ def laplacian_filter(src):
                          [-1, -3, -4, -3, -1]], np.float32)
     return convolution_filter(src, laplacian)
 
+def emboss_filter(src):
+    """
+    emboss_filter(src)
+
+    エンボスフィルター
+
+    引数
+    ----------
+    src : AfmImg形式の画像
+
+    戻り値
+    -------
+    dst : AfmImg形式の画像
+        フィルターがかかった画像
+    """
+    emboss = np.array([[-2, -1, 0],
+                     [-1,  1, 1],
+                     [-1,  1, 2]], np.float32)
+    return convolution_filter(src, emboss)
+
 def sharpen_filter(src):
     """
     sharpen_filter(src)
